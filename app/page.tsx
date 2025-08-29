@@ -9,7 +9,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-16">
+      <div className="container mx-auto px-4 py-12">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
             Welcome to Poll App
@@ -24,15 +24,21 @@ export default function HomePage() {
                 Welcome back, {user.email}!
               </p>
               <div className="flex gap-4 justify-center">
-                <Button size="lg">
-                  Create Poll
-                </Button>
-                <Button variant="outline" size="lg">
-                  Browse Polls
-                </Button>
-                <Button variant="destructive" size="lg" onClick={signOut}>
-                  Sign Out
-                </Button>
+                <Link href="/create">
+                  <Button size="lg">
+                    Create Poll
+                  </Button>
+                </Link>
+                <Link href="/polls">
+                  <Button variant="outline" size="lg">
+                    Browse Polls
+                  </Button>
+                </Link>
+                <Link href="/dashboard">
+                  <Button variant="secondary" size="lg">
+                    Dashboard
+                  </Button>
+                </Link>
               </div>
             </div>
           ) : (
