@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -39,6 +39,11 @@ export default function LoginForm() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!isSupabaseConfigured) {
+      alert('Supabase is not configured. Please set up your environment variables.');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -72,6 +77,14 @@ export default function LoginForm() {
           Enter your email and password to access your account
         </p>
       </div>
+
+      {!isSupabaseConfigured && (
+        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+          <p className="text-sm text-yellow-800">
+            ⚠️ Supabase is not configured. Please set up your environment variables in .env.local
+          </p>
+        </div>
+      )}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
