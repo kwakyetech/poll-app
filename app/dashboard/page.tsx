@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/lib/supabaseClient';
+import { createBrowserClient } from '@supabase/ssr';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { PollWithCountsExtended, PollDatabaseResponse } from '@/types';
@@ -23,6 +23,12 @@ export default function DashboardPage() {
     try {
       setLoading(true);
       setError(null);
+
+      // Create Supabase client for browser
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
 
       // Fetch user's polls with option and vote counts
       const { data, error } = await supabase
@@ -80,6 +86,12 @@ export default function DashboardPage() {
     try {
       setDeletingPollId(pollId);
 
+      // Create Supabase client for browser
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
       // Delete votes first (due to foreign key constraints)
       await supabase
         .from('votes')
@@ -116,6 +128,12 @@ export default function DashboardPage() {
 
   const togglePollStatus = async (pollId: string, currentStatus: boolean) => {
     try {
+      // Create Supabase client for browser
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
+
       const { error } = await supabase
         .from('polls')
         .update({ is_active: !currentStatus })

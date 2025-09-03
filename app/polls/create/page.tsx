@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
 
 interface PollOption {
@@ -93,42 +92,35 @@ export default function CreatePollPage() {
     setLoading(true);
 
     try {
-      // Create the poll
-      const { data: pollData, error: pollError } = await supabase
-        .from('polls')
-        .insert({
-          title: title.trim(),
-          description: description.trim(),
-          created_by: user.id,
-          expires_at: expiresAt,
-          allow_multiple_votes: allowMultipleVotes,
-          is_anonymous: isAnonymous
-        })
-        .select()
-        .single();
-
-      if (pollError) {
-        throw pollError;
-      }
-
-      // Create poll options
+      // Prepare poll data
       const validOptions = options.filter(option => option.text.trim());
-      const optionsData = validOptions.map((option, index) => ({
-        poll_id: pollData.id,
-        option_text: option.text.trim(),
-        option_order: index + 1
-      }));
+      const pollData = {
+        title: title.trim(),
+        description: description.trim(),
+        options: validOptions.map(option => option.text.trim()),
+        expiresAt,
+        allowMultipleVotes,
+        isAnonymous
+      };
 
-      const optionsResponse = await supabase
-        .from('poll_options')
-        .insert(optionsData);
+      // Create poll via API
+      const response = await fetch('/api/polls', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(pollData),
+      });
 
-      if (optionsResponse.error) {
-        throw optionsResponse.error;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create poll');
       }
 
+      const result = await response.json();
+      
       // Redirect to the created poll
-      router.push(`/polls/${pollData.id}`);
+      router.push(`/polls/${result.data.id}`);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create poll';
       console.error('Error creating poll:', err);
