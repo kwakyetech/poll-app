@@ -138,33 +138,33 @@ export default function CreatePollPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-gray-50 py-6 sm:py-12">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-lg shadow-md p-8">
+        <div className="bg-white rounded-lg shadow-md p-6 sm:p-8">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
               Create New Poll
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-600 text-sm sm:text-base">
               Create a poll to gather opinions from the community
             </p>
           </div>
 
           {/* Error Message */}
           {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex items-center">
-                <svg className="w-5 h-5 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="mb-4 sm:mb-6 bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
+              <div className="flex items-start sm:items-center">
+                <svg className="w-5 h-5 text-red-600 mr-2 flex-shrink-0 mt-0.5 sm:mt-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p className="text-red-800">{error}</p>
+                <p className="text-red-800 text-sm sm:text-base">{error}</p>
               </div>
             </div>
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
             {/* Poll Title */}
             <div>
               <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
@@ -175,12 +175,12 @@ export default function CreatePollPage() {
                 id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-3 sm:py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base sm:text-sm"
                 placeholder="What's your question?"
                 maxLength={200}
                 required
               />
-              <p className="mt-1 text-sm text-gray-500">{title.length}/200 characters</p>
+              <p className="mt-1 text-xs sm:text-sm text-gray-500">{title.length}/200 characters</p>
             </div>
 
             {/* Poll Description */}
@@ -192,13 +192,13 @@ export default function CreatePollPage() {
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                rows={4}
+                className="w-full px-3 py-3 sm:py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base sm:text-sm resize-none"
                 placeholder="Provide more context about your poll..."
                 maxLength={500}
                 required
               />
-              <p className="mt-1 text-sm text-gray-500">{description.length}/500 characters</p>
+              <p className="mt-1 text-xs sm:text-sm text-gray-500">{description.length}/500 characters</p>
             </div>
 
             {/* Poll Options */}
@@ -206,7 +206,7 @@ export default function CreatePollPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Poll Options * (minimum 2)
               </label>
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {options.map((option, index) => (
                   <div key={option.id} className="flex items-center space-x-2">
                     <div className="flex-1">
@@ -214,7 +214,7 @@ export default function CreatePollPage() {
                         type="text"
                         value={option.text}
                         onChange={(e) => updateOption(option.id, e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-3 sm:py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base sm:text-sm"
                         placeholder={`Option ${index + 1}`}
                         maxLength={100}
                       />
@@ -225,7 +225,7 @@ export default function CreatePollPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => removeOption(option.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0 h-12 w-12 sm:h-8 sm:w-8 p-0"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -241,7 +241,7 @@ export default function CreatePollPage() {
                   type="button"
                   variant="outline"
                   onClick={addOption}
-                  className="mt-3"
+                  className="mt-3 w-full sm:w-auto"
                 >
                   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -262,58 +262,59 @@ export default function CreatePollPage() {
                 value={expiresAt}
                 onChange={(e) => setExpiresAt(e.target.value)}
                 min={getMinDate()}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-3 sm:py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base sm:text-sm"
                 required
               />
-              <p className="mt-1 text-sm text-gray-500">When should this poll close?</p>
+              <p className="mt-1 text-xs sm:text-sm text-gray-500">When should this poll close?</p>
             </div>
 
             {/* Poll Settings */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900">Poll Settings</h3>
+            <div className="space-y-3 sm:space-y-4">
+              <h3 className="text-base sm:text-lg font-medium text-gray-900">Poll Settings</h3>
               
-              <div className="flex items-center">
+              <div className="flex items-start sm:items-center p-3 sm:p-2 border border-gray-200 rounded-lg">
                 <input
                   type="checkbox"
                   id="allowMultipleVotes"
                   checked={allowMultipleVotes}
                   onChange={(e) => setAllowMultipleVotes(e.target.checked)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-0.5 sm:mt-0 flex-shrink-0"
                 />
-                <label htmlFor="allowMultipleVotes" className="ml-2 block text-sm text-gray-700">
+                <label htmlFor="allowMultipleVotes" className="ml-3 block text-sm text-gray-700 leading-relaxed">
                   Allow multiple votes per user
                 </label>
               </div>
 
-              <div className="flex items-center">
+              <div className="flex items-start sm:items-center p-3 sm:p-2 border border-gray-200 rounded-lg">
                 <input
                   type="checkbox"
                   id="isAnonymous"
                   checked={isAnonymous}
                   onChange={(e) => setIsAnonymous(e.target.checked)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-0.5 sm:mt-0 flex-shrink-0"
                 />
-                <label htmlFor="isAnonymous" className="ml-2 block text-sm text-gray-700">
+                <label htmlFor="isAnonymous" className="ml-3 block text-sm text-gray-700 leading-relaxed">
                   Anonymous voting (hide voter identities)
                 </label>
               </div>
             </div>
 
             {/* Submit Button */}
-            <div className="pt-6 border-t border-gray-200">
-              <div className="flex justify-end space-x-3">
+            <div className="pt-4 sm:pt-6 border-t border-gray-200">
+              <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-3">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => router.back()}
                   disabled={loading}
+                  className="w-full sm:w-auto h-12 sm:h-10 text-base sm:text-sm"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="min-w-[120px]"
+                  className="w-full sm:w-auto sm:min-w-[120px] h-12 sm:h-10 text-base sm:text-sm"
                 >
                   {loading ? (
                     <>
