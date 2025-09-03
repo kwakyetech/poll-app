@@ -90,7 +90,7 @@ export async function middleware(req: NextRequest) {
       '/dashboard',
       '/polls/create',
       '/profile',
-      '/api/polls',
+      '/api/polls/create',
     ];
 
     // Public routes that should redirect to dashboard if user is authenticated
@@ -129,7 +129,25 @@ export async function middleware(req: NextRequest) {
       const publicApiRoutes = [
         '/api/auth',
         '/api/health',
+        '/api/polls/', // Allow public access to individual poll routes
       ];
+
+      // Special handling for poll-related API routes
+      if (pathname.startsWith('/api/polls/')) {
+        // Allow public access to view polls and their data
+        if (pathname.match(/^\/api\/polls\/[^/]+$/) || pathname.match(/^\/api\/polls\/[^/]+\/text-response$/)) {
+          return response;
+        }
+        // Protect vote casting and poll creation
+        if (pathname.includes('/vote') || pathname === '/api/polls') {
+          if (!session) {
+            return NextResponse.json(
+              { error: 'Authentication required' },
+              { status: 401 }
+            );
+          }
+        }
+      }
 
       const isPublicApiRoute = publicApiRoutes.some(route => 
         pathname.startsWith(route)
