@@ -1,4 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -7,7 +7,29 @@ import { NextRequest, NextResponse } from 'next/server';
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) => {
+                cookieStore.set(name, value, options);
+              });
+            } catch (error) {
+              // The `setAll` method was called from a Server Component.
+              // This can be ignored if you have middleware refreshing
+              // user sessions.
+            }
+          },
+        },
+      }
+    );
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
@@ -51,7 +73,29 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) => {
+                cookieStore.set(name, value, options);
+              });
+            } catch (error) {
+              // The `setAll` method was called from a Server Component.
+              // This can be ignored if you have middleware refreshing
+              // user sessions.
+            }
+          },
+        },
+      }
+    );
     
     // Get the current user
     const {
@@ -67,7 +111,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, description, options, expiresAt } = body;
+    const { title, description, options, expiresAt, allowMultipleVotes, isAnonymous } = body;
 
     // Validate required fields
     if (!title || !options || options.length < 2) {
@@ -85,6 +129,8 @@ export async function POST(request: NextRequest) {
         description,
         created_by: user.id,
         expires_at: expiresAt || null,
+        allow_multiple_votes: allowMultipleVotes || false,
+        is_anonymous: isAnonymous || false,
         is_active: true,
       })
       .select()
@@ -101,8 +147,8 @@ export async function POST(request: NextRequest) {
     // Create poll options
     const pollOptions = options.map((option: string, index: number) => ({
       poll_id: poll.id,
-      text: option,
-      order_index: index,
+      option_text: option,
+      option_order: index + 1,
     }));
 
     const { error: optionsError } = await supabase

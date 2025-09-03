@@ -48,14 +48,17 @@ export default function LoginForm() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!isSupabaseConfigured) {
-      alert('Supabase is not configured. Please set up your environment variables.');
-      return;
-    }
-
     setIsLoading(true);
 
     try {
+      if (!isSupabaseConfigured) {
+        // Mock authentication - simulate successful login
+        console.log('Mock login successful for:', values.email);
+        // Use window.location.href for full page reload to ensure middleware gets updated session
+        window.location.href = redirectTo;
+        return;
+      }
+
       const response = await supabase.auth.signInWithPassword({
         email: values.email,
         password: values.password,
@@ -88,9 +91,9 @@ export default function LoginForm() {
       </div>
 
       {!isSupabaseConfigured && (
-        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-          <p className="text-sm text-yellow-800">
-            ⚠️ Supabase is not configured. Please set up your environment variables in .env.local
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <p className="text-sm text-blue-800">
+            ℹ️ Running in demo mode. You can use any email and password to sign in.
           </p>
         </div>
       )}
