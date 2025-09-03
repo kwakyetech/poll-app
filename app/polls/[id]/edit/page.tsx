@@ -75,7 +75,7 @@ export default function EditPollPage() {
       setFormData({
         title: poll.title,
         description: poll.description || '',
-        options: options.map(opt => ({ id: opt.id, text: opt.text })),
+        options: options.map(opt => ({ id: opt.id, text: opt.option_text })),
         expires_at: poll.expires_at ? new Date(poll.expires_at).toISOString().slice(0, 16) : '',
         allow_multiple_votes: poll.allow_multiple_votes,
         is_anonymous: poll.is_anonymous
@@ -149,7 +149,7 @@ export default function EditPollPage() {
       for (const option of existingOptions) {
         const { error: updateError } = await supabase
           .from('poll_options')
-          .update({ text: option.text.trim() })
+          .update({ option_text: option.text.trim() })
           .eq('id', option.id);
         if (updateError) throw updateError;
       }
@@ -159,9 +159,10 @@ export default function EditPollPage() {
         const { error: insertError } = await supabase
           .from('poll_options')
           .insert(
-            newOptions.map(option => ({
+            newOptions.map((option, index) => ({
               poll_id: pollId,
-              text: option.text.trim()
+              option_text: option.text.trim(),
+              option_order: existingOptions.length + index + 1
             }))
           );
         if (insertError) throw insertError;
