@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 
 export default function HomePage() {
-  const { user } = useAuth();
+  const { user, displayName } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -21,7 +21,7 @@ export default function HomePage() {
           {user ? (
             <div className="space-y-4 sm:space-y-6">
               <p className="text-base sm:text-lg text-gray-700 px-4">
-                Welcome back, {user.email}!
+                Welcome back, {displayName || user.email}!
               </p>
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center max-w-md sm:max-w-none mx-auto">
                 <Link href="/polls/create" className="w-full sm:w-auto">

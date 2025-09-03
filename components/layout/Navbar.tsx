@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { LogOut, User, Vote, Menu, X } from 'lucide-react';
 
 export default function Navbar() {
-  const { user, signOut } = useAuth();
+  const { user, displayName, signOut } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const handleSignOut = async () => {
@@ -66,7 +66,7 @@ export default function Navbar() {
               <div className="flex items-center space-x-3">
                 <div className="flex items-center space-x-2 text-sm text-gray-700">
                   <User className="h-4 w-4" />
-                  <span className="hidden lg:inline">{user.email}</span>
+                  <span className="hidden lg:inline">{displayName || user.email}</span>
                 </div>
                 <Button 
                   variant="outline" 
@@ -155,7 +155,7 @@ export default function Navbar() {
                 <div className="space-y-2">
                   <div className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700">
                     <User className="h-4 w-4" />
-                    <span>{user.email}</span>
+                    <span>{displayName || user.email}</span>
                   </div>
                   <button
                     onClick={() => {

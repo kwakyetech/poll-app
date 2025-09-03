@@ -1,7 +1,20 @@
+import { Session } from '@supabase/supabase-js';
+
 // Database types matching Supabase schema
 export interface User {
   id: string;
   email: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserProfile {
+  id: string;
+  user_id: string;
+  username: string;
+  firstname: string;
+  lastname: string;
+  middlename?: string;
   created_at: string;
   updated_at: string;
 }
@@ -103,9 +116,10 @@ export interface ApiResponse<T = any> {
 // Auth Context types
 export interface AuthContextType {
   user: User | null;
+  userProfile: UserProfile | null;
+  displayName: string | null;
+  session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 

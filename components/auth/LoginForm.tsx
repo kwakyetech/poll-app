@@ -25,8 +25,8 @@ import { Input } from '@/components/ui/input';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 const formSchema = z.object({
-  email: z.string().email({
-    message: 'Please enter a valid email address.',
+  usernameOrEmail: z.string().min(1, {
+    message: 'Please enter your username or email.',
   }),
   password: z.string().min(6, {
     message: 'Password must be at least 6 characters.',
@@ -42,7 +42,7 @@ export default function LoginForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: '',
+      usernameOrEmail: '',
       password: '',
     },
   });
@@ -53,14 +53,26 @@ export default function LoginForm() {
     try {
       if (!isSupabaseConfigured) {
         // Mock authentication - simulate successful login
-        console.log('Mock login successful for:', values.email);
+        console.log('Mock login successful for:', values.usernameOrEmail);
         // Use window.location.href for full page reload to ensure middleware gets updated session
         window.location.href = redirectTo;
         return;
       }
 
+      // First, find the user's email using username or email
+      const { data: userData, error: userError } = await supabase
+        .rpc('find_user_by_username_or_email', {
+          username_or_email: values.usernameOrEmail
+        });
+
+      if (userError || !userData) {
+        console.error('User lookup error:', userError?.message || 'User not found');
+        alert('Invalid username/email or password.');
+        return;
+      }
+
       const response = await supabase.auth.signInWithPassword({
-        email: values.email,
+        email: userData.email,
         password: values.password,
       });
 
@@ -86,14 +98,14 @@ export default function LoginForm() {
       <div className="text-center">
         <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Sign in to your account</h2>
         <p className="text-xs sm:text-sm text-muted-foreground mt-2">
-          Enter your email and password to access your account
+          Enter your username or email and password to access your account
         </p>
       </div>
 
       {!isSupabaseConfigured && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
           <p className="text-xs sm:text-sm text-blue-800">
-            ℹ️ Running in demo mode. You can use any email and password to sign in.
+            ℹ️ Running in demo mode. You can use any username/email and password to sign in.
           </p>
         </div>
       )}
@@ -102,14 +114,14 @@ export default function LoginForm() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">
           <FormField
             control={form.control}
-            name="email"
+            name="usernameOrEmail"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-sm sm:text-base">Email</FormLabel>
+                <FormLabel className="text-sm sm:text-base">Username or Email</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="Enter your email"
-                    type="email"
+                    placeholder="Enter your username or email"
+                    type="text"
                     className="h-10 sm:h-11 text-sm sm:text-base"
                     {...field}
                   />

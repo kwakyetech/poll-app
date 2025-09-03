@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { createBrowserClient } from '@supabase/ssr';
 import { isSupabaseConfigured } from '@/lib/supabaseClient';
+import { UserProfile } from '@/types';
 
 // Create browser client for client-side operations
 const supabase = createBrowserClient(
@@ -13,6 +14,8 @@ const supabase = createBrowserClient(
 
 interface AuthContextType {
   user: User | null;
+  userProfile: UserProfile | null;
+  displayName: string | null;
   session: Session | null;
   loading: boolean;
   signOut: () => Promise<void>;
@@ -20,6 +23,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  userProfile: null,
+  displayName: null,
   session: null,
   loading: true,
   signOut: async () => {},
@@ -27,8 +32,47 @@ const AuthContext = createContext<AuthContextType>({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Function to fetch user profile
+  const fetchUserProfile = async (userId: string) => {
+    if (!isSupabaseConfigured) {
+      // Mock profile for demo mode
+      const mockProfile: UserProfile = {
+        id: 'mock-profile-id',
+        user_id: userId,
+        username: 'testuser',
+        firstname: 'Test',
+        lastname: 'User',
+        middlename: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      setUserProfile(mockProfile);
+      setDisplayName(mockProfile.username);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .rpc('get_user_profile', { user_id: userId });
+      
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        return;
+      }
+      
+      if (data) {
+        setUserProfile(data);
+        setDisplayName(data.username);
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -62,6 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       setUser(mockUser);
       setSession(mockSession);
+      fetchUserProfile(mockUser.id);
       setLoading(false);
       return;
     }
@@ -71,6 +116,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        await fetchUserProfile(session.user.id);
+      } else {
+        setUserProfile(null);
+        setDisplayName(null);
+      }
+      
       setLoading(false);
     };
 
@@ -81,6 +134,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       async (event: AuthChangeEvent, session: Session | null) => {
         setSession(session);
         setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          await fetchUserProfile(session.user.id);
+        } else {
+          setUserProfile(null);
+          setDisplayName(null);
+        }
+        
         setLoading(false);
       }
     );
@@ -95,11 +156,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // In mock mode, just clear the local state
       setUser(null);
       setSession(null);
+      setUserProfile(null);
+      setDisplayName(null);
     }
   };
 
   const value = {
     user,
+    userProfile,
+    displayName,
     session,
     loading,
     signOut,
