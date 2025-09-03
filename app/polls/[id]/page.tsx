@@ -63,39 +63,40 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
     }
   };
 
-  // Fetch poll data
-  useEffect(() => {
-    const fetchPoll = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const response = await fetch(`/api/polls/${id}`);
-        const data = await response.json();
-        
-        if (data.error) {
-          throw new Error(data.error);
-        }
-        
-        setPoll(data.data);
-        
-        // Check if user has already voted
-        if (data.data.user_vote) {
-          setHasVoted(true);
-          // Handle both single and multiple votes
-          if (Array.isArray(data.data.user_vote)) {
-            setSelectedOptions(data.data.user_vote.map((vote: any) => vote.option_id));
-          } else {
-            setSelectedOptions([data.data.user_vote.option_id]);
-          }
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load poll');
-      } finally {
-        setLoading(false);
+  // Fetch poll data function - moved outside useEffect to be accessible
+  const fetchPoll = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch(`/api/polls/${id}`);
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
       }
-    };
-    
+      
+      setPoll(data.data);
+      
+      // Check if user has already voted
+      if (data.data.user_vote) {
+        setHasVoted(true);
+        // Handle both single and multiple votes
+        if (Array.isArray(data.data.user_vote)) {
+          setSelectedOptions(data.data.user_vote.map((vote: any) => vote.option_id));
+        } else {
+          setSelectedOptions([data.data.user_vote.option_id]);
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load poll');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch poll data on component mount
+  useEffect(() => {
     fetchPoll();
   }, [id]);
 

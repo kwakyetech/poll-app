@@ -11,6 +11,7 @@ SELECT
   p.is_active,
   p.allow_multiple_votes,
   p.is_anonymous,
+  p.poll_type,
   -- Calculate if poll is expired
   CASE 
     WHEN p.expires_at IS NOT NULL AND p.expires_at <= NOW() THEN true
@@ -57,7 +58,7 @@ LEFT JOIN (
 GROUP BY 
   p.id, p.title, p.description, p.created_by, p.created_at, 
   p.updated_at, p.expires_at, p.is_active, p.allow_multiple_votes, 
-  p.is_anonymous, vote_counts.total_votes;
+  p.is_anonymous, p.poll_type, vote_counts.total_votes;
 
 -- Function to get poll by ID with results
 CREATE OR REPLACE FUNCTION get_poll_with_results(poll_uuid UUID)
@@ -72,6 +73,7 @@ RETURNS TABLE(
   is_active BOOLEAN,
   allow_multiple_votes BOOLEAN,
   is_anonymous BOOLEAN,
+  poll_type VARCHAR,
   is_expired BOOLEAN,
   total_votes BIGINT,
   options JSON,
