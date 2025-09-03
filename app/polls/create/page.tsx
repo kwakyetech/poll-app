@@ -19,6 +19,7 @@ export default function CreatePollPage() {
   // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [pollType, setPollType] = useState<'single' | 'multiple' | 'text'>('single');
   const [options, setOptions] = useState<PollOption[]>([
     { id: '1', text: '' },
     { id: '2', text: '' }
@@ -61,10 +62,13 @@ export default function CreatePollPage() {
       return false;
     }
 
-    const validOptions = options.filter(option => option.text.trim());
-    if (validOptions.length < 2) {
-      setError('At least 2 options are required');
-      return false;
+    // Only validate options for non-text polls
+    if (pollType !== 'text') {
+      const validOptions = options.filter(option => option.text.trim());
+      if (validOptions.length < 2) {
+        setError('At least 2 options are required');
+        return false;
+      }
     }
 
     if (!expiresAt) {
@@ -93,11 +97,11 @@ export default function CreatePollPage() {
 
     try {
       // Prepare poll data
-      const validOptions = options.filter(option => option.text.trim());
       const pollData = {
         title: title.trim(),
         description: description.trim(),
-        options: validOptions.map(option => option.text.trim()),
+        pollType,
+        options: pollType === 'text' ? [] : options.filter(option => option.text.trim()).map(option => option.text.trim()),
         expiresAt,
         allowMultipleVotes,
         isAnonymous
@@ -201,11 +205,104 @@ export default function CreatePollPage() {
               <p className="mt-1 text-xs sm:text-sm text-gray-500">{description.length}/500 characters</p>
             </div>
 
-            {/* Poll Options */}
+            {/* Poll Type */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Poll Options * (minimum 2)
+                Poll Type *
               </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div 
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    pollType === 'single' 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => {
+                    setPollType('single');
+                    setAllowMultipleVotes(false);
+                  }}
+                >
+                  <div className="flex items-center mb-2">
+                    <input
+                      type="radio"
+                      name="pollType"
+                      value="single"
+                      checked={pollType === 'single'}
+                      onChange={() => {
+                        setPollType('single');
+                        setAllowMultipleVotes(false);
+                      }}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    <span className="ml-2 font-medium text-gray-900">Single Choice</span>
+                  </div>
+                  <p className="text-sm text-gray-600">Users can select only one option</p>
+                </div>
+
+                <div 
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    pollType === 'multiple' 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => {
+                    setPollType('multiple');
+                    setAllowMultipleVotes(true);
+                  }}
+                >
+                  <div className="flex items-center mb-2">
+                    <input
+                      type="radio"
+                      name="pollType"
+                      value="multiple"
+                      checked={pollType === 'multiple'}
+                      onChange={() => {
+                        setPollType('multiple');
+                        setAllowMultipleVotes(true);
+                      }}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    <span className="ml-2 font-medium text-gray-900">Multiple Choice</span>
+                  </div>
+                  <p className="text-sm text-gray-600">Users can select multiple options</p>
+                </div>
+
+                <div 
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    pollType === 'text' 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => {
+                    setPollType('text');
+                    setAllowMultipleVotes(false);
+                  }}
+                >
+                  <div className="flex items-center mb-2">
+                    <input
+                      type="radio"
+                      name="pollType"
+                      value="text"
+                      checked={pollType === 'text'}
+                      onChange={() => {
+                        setPollType('text');
+                        setAllowMultipleVotes(false);
+                      }}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    <span className="ml-2 font-medium text-gray-900">Text Input</span>
+                  </div>
+                  <p className="text-sm text-gray-600">Users can type custom responses</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Poll Options */}
+            {pollType !== 'text' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Poll Options * (minimum 2)
+                </label>
               <div className="space-y-2 sm:space-y-3">
                 {options.map((option, index) => (
                   <div key={option.id} className="flex items-center space-x-2">
@@ -236,20 +333,38 @@ export default function CreatePollPage() {
                 ))}
               </div>
               
-              {options.length < 10 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={addOption}
-                  className="mt-3 w-full sm:w-auto"
-                >
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                {options.length < 10 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addOption}
+                    className="mt-3 w-full sm:w-auto"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Option
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* Text Input Poll Info */}
+            {pollType === 'text' && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <svg className="w-5 h-5 text-blue-600 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  Add Option
-                </Button>
-              )}
-            </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-blue-900 mb-1">Text Input Poll</h4>
+                    <p className="text-sm text-blue-800">
+                      Users will be able to submit their own text responses instead of choosing from predefined options.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Expiration Date */}
             <div>
@@ -272,18 +387,38 @@ export default function CreatePollPage() {
             <div className="space-y-3 sm:space-y-4">
               <h3 className="text-base sm:text-lg font-medium text-gray-900">Poll Settings</h3>
               
-              <div className="flex items-start sm:items-center p-3 sm:p-2 border border-gray-200 rounded-lg">
-                <input
-                  type="checkbox"
-                  id="allowMultipleVotes"
-                  checked={allowMultipleVotes}
-                  onChange={(e) => setAllowMultipleVotes(e.target.checked)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-0.5 sm:mt-0 flex-shrink-0"
-                />
-                <label htmlFor="allowMultipleVotes" className="ml-3 block text-sm text-gray-700 leading-relaxed">
-                  Allow multiple votes per user
-                </label>
-              </div>
+              {/* Only show multiple votes option for single choice polls */}
+              {pollType === 'single' && (
+                <div className="flex items-start sm:items-center p-3 sm:p-2 border border-gray-200 rounded-lg">
+                  <input
+                    type="checkbox"
+                    id="allowMultipleVotes"
+                    checked={allowMultipleVotes}
+                    onChange={(e) => setAllowMultipleVotes(e.target.checked)}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-0.5 sm:mt-0 flex-shrink-0"
+                  />
+                  <label htmlFor="allowMultipleVotes" className="ml-3 block text-sm text-gray-700 leading-relaxed">
+                    Allow multiple votes per user
+                  </label>
+                </div>
+              )}
+              
+              {/* Show info for multiple choice and text polls */}
+              {pollType === 'multiple' && (
+                <div className="p-3 sm:p-2 border border-blue-200 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    ✓ Multiple selection is enabled for this poll type
+                  </p>
+                </div>
+              )}
+              
+              {pollType === 'text' && (
+                <div className="p-3 sm:p-2 border border-green-200 bg-green-50 rounded-lg">
+                  <p className="text-sm text-green-800">
+                    ✓ Users can submit custom text responses
+                  </p>
+                </div>
+              )}
 
               <div className="flex items-start sm:items-center p-3 sm:p-2 border border-gray-200 rounded-lg">
                 <input
