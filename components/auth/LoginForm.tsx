@@ -4,7 +4,14 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
+import { createBrowserClient } from '@supabase/ssr';
+import { isSupabaseConfigured } from '@/lib/supabaseClient';
+
+// Create browser client for client-side operations
+const supabase = createBrowserClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -15,7 +22,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const formSchema = z.object({
   email: z.string().email({
@@ -29,6 +36,8 @@ const formSchema = z.object({
 export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirectTo') || '/dashboard';
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -47,19 +56,19 @@ export default function LoginForm() {
     setIsLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const response = await supabase.auth.signInWithPassword({
         email: values.email,
         password: values.password,
       });
 
-      if (error) {
-        console.error('Login error:', error.message);
+      if (response.error) {
+        console.error('Login error:', response.error.message);
         // You can replace this with a toast notification later
-        alert(`Login failed: ${error.message}`);
-      } else {
-        console.log('Login successful:', data.user);
-        // Redirect to dashboard or home page
-        router.push('/');
+        alert(`Login failed: ${response.error.message}`);
+      } else if (response.data) {
+        console.log('Login successful:', response.data.user);
+        // Use window.location.href for full page reload to ensure middleware gets updated session
+        window.location.href = redirectTo;
       }
     } catch (error) {
       console.error('Unexpected error:', error);

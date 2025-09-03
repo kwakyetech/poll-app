@@ -1,7 +1,6 @@
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-import type { Poll } from '@/types';
 
 /**
  * GET /api/polls - Fetch all polls or user-specific polls

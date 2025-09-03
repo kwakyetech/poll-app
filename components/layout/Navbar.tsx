@@ -43,7 +43,7 @@ export default function Navbar() {
                   Polls
                 </Link>
                 <Link 
-                  href="/create" 
+                  href="/polls/create" 
                   className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                 >
                   Create Poll
@@ -121,7 +121,7 @@ export default function Navbar() {
                 Polls
               </Link>
               <Link 
-                href="/create" 
+                href="/polls/create" 
                 className="block px-3 py-2 text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-gray-100 rounded-md"
               >
                 Create Poll

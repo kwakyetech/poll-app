@@ -1,160 +1,110 @@
-# Poll App - Next.js 15 with TypeScript
+# Poll App
 
-A modern polling application built with Next.js 15, TypeScript, Tailwind CSS, and Supabase.
+A modern polling application built with Next.js, TypeScript, and Supabase.
 
-## 🏗️ Project Structure
+## 🚀 Quick Start
 
-```
-poll-app/
-├── app/                          # Next.js 13+ App Router
-│   ├── api/                      # API Routes
-│   │   ├── auth/                 # Authentication endpoints
-│   │   └── polls/                # Poll-related endpoints
-│   ├── auth/                     # Authentication pages
-│   │   ├── login/
-│   │   └── register/
-│   ├── globals.css               # Global styles
-│   ├── layout.tsx                # Root layout
-│   └── page.tsx                  # Home page
-├── components/                   # Reusable UI components
-│   ├── auth/                     # Authentication components
-│   │   ├── LoginForm.tsx
-│   │   └── RegisterForm.tsx
-│   ├── layout/                   # Layout components
-│   │   └── Navbar.tsx
-│   ├── polls/                    # Poll-related components
-│   └── ui/                       # Shadcn/ui components
-│       ├── button.tsx
-│       ├── form.tsx
-│       ├── input.tsx
-│       └── label.tsx
-├── context/                      # React Context providers
-│   └── AuthContext.tsx
-├── hooks/                        # Custom React hooks
-│   ├── useLocalStorage.ts
-│   └── usePolls.ts
-├── lib/                          # Utility libraries
-│   ├── supabaseClient.ts
-│   └── utils.ts
-├── middleware/                   # Next.js middleware (empty folder)
-├── public/                       # Static assets
-│   ├── images/
-│   └── icons/
-├── types/                        # TypeScript type definitions
-│   └── index.ts
-├── utils/                        # Utility functions
-│   ├── date.ts
-│   └── validation.ts
-├── middleware.ts                 # Route protection middleware
-├── next.config.js               # Next.js configuration
-├── package.json                 # Dependencies
-├── tailwind.config.js           # Tailwind CSS configuration
-└── tsconfig.json                # TypeScript configuration
-```
+### Development Mode (No Supabase Setup Required)
 
-## 📁 Folder Descriptions
-
-### `/app` - Next.js App Router
-- **`/api`**: Server-side API routes for handling backend logic
-- **`/auth`**: Authentication pages (login, register)
-- **`layout.tsx`**: Root layout component with providers
-- **`page.tsx`**: Home page component
-
-### `/components` - UI Components
-- **`/auth`**: Authentication-related components
-- **`/layout`**: Layout components (navbar, footer, etc.)
-- **`/polls`**: Poll-specific components
-- **`/ui`**: Reusable UI components from Shadcn/ui
-
-### `/context` - React Context
-- Global state management using React Context API
-
-### `/hooks` - Custom Hooks
-- Reusable React hooks for common functionality
-- `useLocalStorage`: Local storage management
-- `usePolls`: Poll data management
-
-### `/lib` - Libraries
-- Third-party library configurations and utilities
-- Supabase client setup
-
-### `/types` - TypeScript Types
-- Centralized type definitions for the entire application
-
-### `/utils` - Utility Functions
-- Pure utility functions for common operations
-- Date formatting, validation, etc.
-
-### `/public` - Static Assets
-- Images, icons, and other static files
-
-## 🚀 Getting Started
+The app includes a mock client for development purposes. You can test all functionality without setting up Supabase:
 
 1. **Install dependencies:**
    ```bash
    npm install
    ```
 
-2. **Set up environment variables:**
-   Create a `.env.local` file with your Supabase credentials:
-   ```env
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   ```
-
-3. **Run the development server:**
+2. **Start the development server:**
    ```bash
    npm run dev
    ```
 
-4. **Open your browser:**
-   Navigate to [http://localhost:3000](http://localhost:3000)
+3. **Test the routing:**
+   - Visit `http://localhost:3000`
+   - Click "Sign In" and use any email/password (mock authentication)
+   - Navigate to Dashboard, Create Poll, and Browse Polls
+   - All routes should work with sample data
 
-## 🛠️ Tech Stack
+### Production Mode (With Supabase)
 
-- **Framework**: Next.js 15 with App Router
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **UI Components**: Shadcn/ui
-- **Database**: Supabase
-- **Authentication**: Supabase Auth
-- **State Management**: React Context API
+For production use, you'll need to set up Supabase:
 
-## 📝 Features
+1. **Follow the setup guide in `SUPABASE_SETUP.md`**
+2. **Create `.env.local` with your Supabase credentials**
+3. **Run database migrations**
+4. **Restart the development server**
 
-- ✅ User authentication (login/register)
-- ✅ Responsive navigation bar
-- ✅ Type-safe development with TypeScript
-- ✅ Modern UI with Tailwind CSS
-- ✅ Component library with Shadcn/ui
-- ✅ Route protection middleware
-- ✅ Custom hooks for data management
-- ✅ Utility functions for common operations
-- ✅ Organized project structure
-
-## 🔒 Route Protection
-
-The application uses Next.js middleware for route protection:
-- **Protected routes**: `/dashboard`, `/create`, `/profile`
-- **Public routes**: `/`, `/auth/login`, `/auth/register`
-- **API protection**: Authentication required for most API endpoints
-
-## 📦 Scripts
+## 🛠️ Available Scripts
 
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
-- `npm run type-check` - Run TypeScript compiler check
+- `npm run db:setup` - Set up database (requires Supabase CLI)
+- `npm run db:help` - Show database setup help
 
-## 🤝 Contributing
+## 📁 Project Structure
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+```
+poll-app/
+├── app/                    # Next.js 13+ app directory
+│   ├── api/               # API routes
+│   ├── auth/              # Authentication pages
+│   ├── dashboard/         # User dashboard
+│   ├── polls/             # Poll management
+│   └── layout.tsx         # Root layout
+├── components/            # Reusable components
+├── context/               # React context providers
+├── lib/                   # Utility libraries
+├── types/                 # TypeScript type definitions
+└── supabase/              # Database migrations and setup
+```
 
-## 📄 License
+## 🔧 Features
 
-This project is licensed under the MIT License.
+- ✅ **User Authentication** - Sign up, sign in, sign out
+- ✅ **Poll Creation** - Create polls with multiple options
+- ✅ **Poll Management** - Dashboard for managing your polls
+- ✅ **Voting System** - Vote on polls and see results
+- ✅ **Responsive Design** - Works on all devices
+- ✅ **Type Safety** - Full TypeScript support
+- ✅ **Modern UI** - Built with Tailwind CSS and Radix UI
+
+## 🧪 Testing Routing
+
+The app includes comprehensive routing:
+
+- **Home** (`/`) - Landing page with navigation
+- **Login** (`/auth/login`) - User authentication
+- **Register** (`/auth/register`) - User registration
+- **Dashboard** (`/dashboard`) - User's poll management
+- **Create Poll** (`/polls/create`) - New poll creation
+- **Browse Polls** (`/polls`) - View all polls
+- **Poll Detail** (`/polls/[id]`) - Individual poll view
+
+## 🚨 Troubleshooting
+
+### Routing Issues
+- Ensure you're signed in (use mock auth in development)
+- Check browser console for errors
+- Verify all routes are accessible after authentication
+
+### Mock Mode
+- Mock client provides sample data for testing
+- Authentication always succeeds with any credentials
+- Sample poll data is displayed in dashboard and polls list
+
+### Production Issues
+- Check Supabase configuration in `.env.local`
+- Verify database migrations have been run
+- Check Supabase dashboard for errors
+
+## 📚 Next Steps
+
+1. **Set up Supabase** for real authentication and data persistence
+2. **Customize the UI** to match your brand
+3. **Add more features** like poll categories, user profiles, etc.
+4. **Deploy to production** using Vercel, Netlify, or your preferred platform
+
+---
+
+Built with ❤️ using Next.js, TypeScript, and Supabase
