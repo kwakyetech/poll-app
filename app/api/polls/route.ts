@@ -111,12 +111,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, description, options, expiresAt, allowMultipleVotes, isAnonymous } = body;
+    const { title, description, pollType, options, expiresAt, allowMultipleVotes, isAnonymous } = body;
 
     // Validate required fields
-    if (!title || !options || options.length < 2) {
+    if (!title) {
       return NextResponse.json(
-        { error: 'Title and at least 2 options are required' },
+        { error: 'Title is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate options for non-text polls
+    if (pollType !== 'text' && (!options || options.length < 2)) {
+      return NextResponse.json(
+        { error: 'At least 2 options are required for choice-based polls' },
         { status: 400 }
       );
     }
@@ -127,6 +135,7 @@ export async function POST(request: NextRequest) {
       .insert({
         title,
         description,
+        poll_type: pollType || 'single',
         created_by: user.id,
         expires_at: expiresAt || null,
         allow_multiple_votes: allowMultipleVotes || false,
@@ -144,25 +153,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create poll options
-    const pollOptions = options.map((option: string, index: number) => ({
-      poll_id: poll.id,
-      option_text: option,
-      option_order: index + 1,
-    }));
+    // Create poll options (only for non-text polls)
+    if (pollType !== 'text' && options && options.length > 0) {
+      const pollOptions = options.map((option: string, index: number) => ({
+        poll_id: poll.id,
+        option_text: option,
+        option_order: index + 1,
+      }));
 
-    const { error: optionsError } = await supabase
-      .from('poll_options')
-      .insert(pollOptions);
+      const { error: optionsError } = await supabase
+        .from('poll_options')
+        .insert(pollOptions);
 
-    if (optionsError) {
-      console.error('Error creating poll options:', optionsError);
-      // Clean up the poll if options creation failed
-      await supabase.from('polls').delete().eq('id', poll.id);
-      return NextResponse.json(
-        { error: 'Failed to create poll options' },
-        { status: 500 }
-      );
+      if (optionsError) {
+        console.error('Error creating poll options:', optionsError);
+        // Clean up the poll if options creation failed
+        await supabase.from('polls').delete().eq('id', poll.id);
+        return NextResponse.json(
+          { error: 'Failed to create poll options' },
+          { status: 500 }
+        );
+      }
     }
 
     // Fetch the complete poll with options
