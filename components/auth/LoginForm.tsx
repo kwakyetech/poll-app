@@ -82,38 +82,39 @@ export default function LoginForm() {
   }
 
   return (
-    <div className="w-full max-w-md mx-auto space-y-6">
+    <div className="w-full max-w-md mx-auto space-y-4 sm:space-y-6 px-4 sm:px-0">
       <div className="text-center">
-        <h2 className="text-2xl font-bold tracking-tight">Sign in to your account</h2>
-        <p className="text-sm text-muted-foreground mt-2">
+        <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Sign in to your account</h2>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-2">
           Enter your email and password to access your account
         </p>
       </div>
 
       {!isSupabaseConfigured && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-          <p className="text-sm text-blue-800">
+          <p className="text-xs sm:text-sm text-blue-800">
             ℹ️ Running in demo mode. You can use any email and password to sign in.
           </p>
         </div>
       )}
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">
           <FormField
             control={form.control}
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel className="text-sm sm:text-base">Email</FormLabel>
                 <FormControl>
                   <Input
                     placeholder="Enter your email"
                     type="email"
+                    className="h-10 sm:h-11 text-sm sm:text-base"
                     {...field}
                   />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-xs sm:text-sm" />
               </FormItem>
             )}
           />
@@ -122,19 +123,20 @@ export default function LoginForm() {
             name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Password</FormLabel>
+                <FormLabel className="text-sm sm:text-base">Password</FormLabel>
                 <FormControl>
                   <Input
                     placeholder="Enter your password"
                     type="password"
+                    className="h-10 sm:h-11 text-sm sm:text-base"
                     {...field}
                   />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-xs sm:text-sm" />
               </FormItem>
             )}
           />
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button type="submit" className="w-full h-10 sm:h-11 text-sm sm:text-base mt-4 sm:mt-6" disabled={isLoading}>
             {isLoading ? 'Signing in...' : 'Sign in'}
           </Button>
         </form>

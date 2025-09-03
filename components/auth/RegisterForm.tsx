@@ -88,15 +88,15 @@ export default function RegisterForm() {
 
   if (isSuccess) {
     return (
-      <div className="w-full max-w-md mx-auto space-y-6">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className="w-full max-w-md mx-auto space-y-4 sm:space-y-6 px-4 sm:px-0">
+        <div className="text-center space-y-3 sm:space-y-4">
+          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+            <svg className="w-6 h-6 sm:w-8 sm:h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold tracking-tight">Registration Successful!</h2>
-          <p className="text-sm text-muted-foreground mt-2">
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-green-600">Account Created!</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Please check your email to verify your account before signing in.
           </p>
         </div>
@@ -105,38 +105,39 @@ export default function RegisterForm() {
   }
 
   return (
-    <div className="w-full max-w-md mx-auto space-y-6">
+    <div className="w-full max-w-md mx-auto space-y-4 sm:space-y-6 px-4 sm:px-0">
       <div className="text-center">
-        <h2 className="text-2xl font-bold tracking-tight">Create your account</h2>
-        <p className="text-sm text-muted-foreground mt-2">
+        <h2 className="text-xl sm:text-2xl font-bold tracking-tight">Create your account</h2>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-2">
           Enter your details to create a new account
         </p>
       </div>
 
       {!isSupabaseConfigured && (
         <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-          <p className="text-sm text-yellow-800">
+          <p className="text-xs sm:text-sm text-yellow-800">
             ⚠️ Supabase is not configured. Please set up your environment variables in .env.local
           </p>
         </div>
       )}
       
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">
           <FormField
             control={form.control}
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel className="text-sm sm:text-base">Email</FormLabel>
                 <FormControl>
                   <Input
                     placeholder="Enter your email"
                     type="email"
+                    className="h-10 sm:h-11 text-sm sm:text-base"
                     {...field}
                   />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-xs sm:text-sm" />
               </FormItem>
             )}
           />
@@ -145,15 +146,16 @@ export default function RegisterForm() {
             name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Password</FormLabel>
+                <FormLabel className="text-sm sm:text-base">Password</FormLabel>
                 <FormControl>
                   <Input
                     placeholder="Enter your password"
                     type="password"
+                    className="h-10 sm:h-11 text-sm sm:text-base"
                     {...field}
                   />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-xs sm:text-sm" />
               </FormItem>
             )}
           />
@@ -162,19 +164,20 @@ export default function RegisterForm() {
             name="confirmPassword"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Confirm Password</FormLabel>
+                <FormLabel className="text-sm sm:text-base">Confirm Password</FormLabel>
                 <FormControl>
                   <Input
                     placeholder="Confirm your password"
                     type="password"
+                    className="h-10 sm:h-11 text-sm sm:text-base"
                     {...field}
                   />
                 </FormControl>
-                <FormMessage />
+                <FormMessage className="text-xs sm:text-sm" />
               </FormItem>
             )}
           />
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button type="submit" className="w-full h-10 sm:h-11 text-sm sm:text-base mt-4 sm:mt-6" disabled={isLoading}>
             {isLoading ? 'Creating account...' : 'Create account'}
           </Button>
         </form>
