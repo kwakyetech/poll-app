@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 
 export default function HomePage() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -24,7 +24,7 @@ export default function HomePage() {
                 Welcome back, {user.email}!
               </p>
               <div className="flex gap-4 justify-center">
-                <Link href="/create">
+                <Link href="/polls/create">
                   <Button size="lg">
                     Create Poll
                   </Button>
