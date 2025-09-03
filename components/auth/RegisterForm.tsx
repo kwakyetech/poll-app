@@ -25,6 +25,26 @@ import { Input } from '@/components/ui/input';
 import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
+  username: z.string().min(3, {
+    message: 'Username must be at least 3 characters.',
+  }).max(50, {
+    message: 'Username must be less than 50 characters.',
+  }).regex(/^[a-zA-Z0-9_]+$/, {
+    message: 'Username can only contain letters, numbers, and underscores.',
+  }),
+  firstname: z.string().min(1, {
+    message: 'First name is required.',
+  }).max(100, {
+    message: 'First name must be less than 100 characters.',
+  }),
+  lastname: z.string().min(1, {
+    message: 'Last name is required.',
+  }).max(100, {
+    message: 'Last name must be less than 100 characters.',
+  }),
+  middlename: z.string().max(100, {
+    message: 'Middle name must be less than 100 characters.',
+  }).optional(),
   email: z.string().email({
     message: 'Please enter a valid email address.',
   }),
@@ -47,6 +67,10 @@ export default function RegisterForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      username: '',
+      firstname: '',
+      lastname: '',
+      middlename: '',
       email: '',
       password: '',
       confirmPassword: '',
@@ -62,6 +86,20 @@ export default function RegisterForm() {
     setIsLoading(true);
 
     try {
+      // First, check if username is already taken
+      const { data: existingUser } = await supabase
+        .from('user_profiles')
+        .select('username')
+        .eq('username', values.username)
+        .single();
+
+      if (existingUser) {
+        alert('Username is already taken. Please choose a different username.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Create the auth user
       const response = await supabase.auth.signUp({
         email: values.email,
         password: values.password,
@@ -70,13 +108,29 @@ export default function RegisterForm() {
       if (response.error) {
         console.error('Registration error:', response.error.message);
         alert(`Registration failed: ${response.error.message}`);
-      } else if (response.data) {
-        console.log('Registration successful:', response.data.user);
-        setIsSuccess(true);
-        alert('Registration successful! Please check your email for verification.');
-        setTimeout(() => {
-          router.push('/auth/login');
-        }, 2000);
+      } else if (response.data?.user) {
+        // Create user profile
+        const { error: profileError } = await supabase
+          .from('user_profiles')
+          .insert({
+            user_id: response.data.user.id,
+            username: values.username,
+            firstname: values.firstname,
+            lastname: values.lastname,
+            middlename: values.middlename || null,
+          });
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError.message);
+          alert(`Profile creation failed: ${profileError.message}`);
+        } else {
+          console.log('Registration successful:', response.data.user);
+          setIsSuccess(true);
+          alert('Registration successful! Please check your email for verification.');
+          setTimeout(() => {
+            router.push('/auth/login');
+          }, 2000);
+        }
       }
     } catch (error) {
       console.error('Unexpected error:', error);
@@ -123,6 +177,80 @@ export default function RegisterForm() {
       
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">
+          <FormField
+            control={form.control}
+            name="username"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm sm:text-base">Username</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Enter your username"
+                    type="text"
+                    className="h-10 sm:h-11 text-sm sm:text-base"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage className="text-xs sm:text-sm" />
+              </FormItem>
+            )}
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <FormField
+              control={form.control}
+              name="firstname"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm sm:text-base">First Name</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Enter your first name"
+                      type="text"
+                      className="h-10 sm:h-11 text-sm sm:text-base"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage className="text-xs sm:text-sm" />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="lastname"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-sm sm:text-base">Last Name</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Enter your last name"
+                      type="text"
+                      className="h-10 sm:h-11 text-sm sm:text-base"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage className="text-xs sm:text-sm" />
+                </FormItem>
+              )}
+            />
+          </div>
+          <FormField
+            control={form.control}
+            name="middlename"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-sm sm:text-base">Middle Name (Optional)</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Enter your middle name"
+                    type="text"
+                    className="h-10 sm:h-11 text-sm sm:text-base"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage className="text-xs sm:text-sm" />
+              </FormItem>
+            )}
+          />
           <FormField
             control={form.control}
             name="email"
