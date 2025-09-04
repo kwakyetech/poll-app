@@ -23,7 +23,17 @@ export async function GET(request: NextRequest) {
     // Sort by created_at descending
     polls.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-    return NextResponse.json({ data: polls });
+    // Map vote counts for consistency with individual poll API
+    const pollsWithVoteCounts = polls.map(poll => ({
+      ...poll,
+      options: poll.options.map((option: any) => ({
+        ...option,
+        vote_count: option.votes // Map votes to vote_count for frontend consistency
+      })),
+      total_votes: poll.options.reduce((sum: number, option: any) => sum + option.votes, 0)
+    }));
+
+    return NextResponse.json({ data: pollsWithVoteCounts });
   } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json(
@@ -75,6 +85,14 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { title, description, pollType, options, expiresAt, allowMultipleVotes, isAnonymous } = body;
+    
+    // Debug logging
+    console.log('Creating poll with data:', {
+      title,
+      pollType,
+      allowMultipleVotes,
+      optionsCount: options?.length || 0
+    });
 
     // Validate required fields
     if (!title) {
@@ -93,19 +111,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Create new poll
+    const determinedPollType = pollType; // Keep the original pollType as frontend expects 'single', 'multiple', or 'text'
+    console.log('Poll type mapping:', { received: pollType, determined: determinedPollType });
+    
     const newPoll = {
       id: `poll-${getPolls().length + 1}`,
       title,
       description: description || '',
-      poll_type: pollType || 'single',
+      poll_type: determinedPollType,
       created_by: sessionData.user.id,
       created_at: new Date().toISOString(),
       expires_at: expiresAt || null,
       allow_multiple_votes: allowMultipleVotes || false,
       is_anonymous: isAnonymous || false,
       is_active: true,
-      options: [],
-      votes: []
+      options: []
     };
 
     // Create poll options (only for non-text polls)
@@ -113,14 +133,21 @@ export async function POST(request: NextRequest) {
       newPoll.options = options.map((option: string, index: number) => ({
         id: `${newPoll.id}-option-${index + 1}`,
         poll_id: newPoll.id,
-        option_text: option,
+        text: option,
         option_order: index + 1,
-        votes: []
+        votes: 0
       }));
     }
 
     // Add to mock database
     addPoll(newPoll);
+    
+    console.log('Created new poll:', {
+      id: newPoll.id,
+      title: newPoll.title,
+      poll_type: newPoll.poll_type,
+      options: newPoll.options.map(opt => ({ id: opt.id, text: opt.text, votes: opt.votes }))
+    });
 
     return NextResponse.json(
       { data: newPoll, message: 'Poll created successfully' },

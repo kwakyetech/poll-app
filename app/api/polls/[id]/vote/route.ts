@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-import { findPoll } from '@/lib/mockData';
+import { findPoll, getPolls } from '@/lib/mockData';
 
 // Mock data store (shared with other routes)
 interface MockVote {
@@ -23,10 +23,15 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: pollId } = await params;
+    const body = await request.json();
+    const { optionId } = body;
+
+
+
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get('mock-auth-session');
     
-    // Mock authentication check
     if (!sessionCookie) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -34,10 +39,10 @@ export async function POST(
       );
     }
 
-    // Parse and validate session
-    let sessionData;
+    let mockUserId: string;
     try {
-      sessionData = JSON.parse(sessionCookie.value);
+      const sessionData = JSON.parse(sessionCookie.value);
+      
       // Check if session is expired
       if (sessionData.expires_at <= Math.floor(Date.now() / 1000)) {
         return NextResponse.json(
@@ -45,17 +50,14 @@ export async function POST(
           { status: 401 }
         );
       }
+      
+      mockUserId = sessionData.user.id;
     } catch (error) {
       return NextResponse.json(
         { error: 'Invalid session' },
         { status: 401 }
       );
     }
-
-    const { id: pollId } = await params;
-    const body = await request.json();
-    const { optionId } = body;
-    const mockUserId = sessionData.user.id;
 
     // Validate required fields
     if (!optionId) {
@@ -94,41 +96,75 @@ export async function POST(
       vote => vote.poll_id === pollId && vote.user_id === mockUserId
     );
 
+    // Check if user has already voted and poll doesn't allow multiple votes
+    if (existingVoteIndex !== -1 && !poll.allow_multiple_votes) {
+      return NextResponse.json(
+        { error: 'You have already voted on this poll. Multiple votes are not allowed.' },
+        { status: 400 }
+      );
+    }
+
     const voteId = `vote-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    if (existingVoteIndex !== -1) {
-      // Update existing vote (assuming polls allow vote changes)
-      mockVotes[existingVoteIndex] = {
-        ...mockVotes[existingVoteIndex],
-        option_id: optionId,
-        created_at: new Date().toISOString()
-      };
+    // Helper function to update vote counts in poll data
+    const updatePollVoteCounts = (oldOptionId?: string, newOptionId?: string) => {
+      const polls = getPolls();
+      const pollIndex = polls.findIndex(p => p.id === pollId);
+      console.log('Updating vote counts for poll:', pollId, 'Found poll at index:', pollIndex);
+      
+      if (pollIndex !== -1) {
+        const poll = polls[pollIndex];
+        console.log('Poll options before update:', poll.options.map(opt => ({ id: opt.id, text: opt.text, votes: opt.votes })));
+        
+        // Decrease count for old option (if updating vote)
+        if (oldOptionId) {
+          const oldOption = poll.options.find(opt => opt.id === oldOptionId);
+          if (oldOption && oldOption.votes > 0) {
+            oldOption.votes--;
+            console.log('Decreased votes for option:', oldOptionId, 'New count:', oldOption.votes);
+          }
+        }
+        
+        // Increase count for new option
+        if (newOptionId) {
+          const newOption = poll.options.find(opt => opt.id === newOptionId);
+          if (newOption) {
+            newOption.votes++;
+            console.log('Increased votes for option:', newOptionId, 'New count:', newOption.votes);
+          } else {
+            console.log('ERROR: Could not find option with ID:', newOptionId, 'Available options:', poll.options.map(opt => opt.id));
+          }
+        }
+        
+        console.log('Poll options after update:', poll.options.map(opt => ({ id: opt.id, text: opt.text, votes: opt.votes })));
+      } else {
+        console.log('ERROR: Could not find poll with ID:', pollId, 'Available polls:', polls.map(p => p.id));
+      }
+    };
 
-      return NextResponse.json({
-        success: true,
-        message: 'Vote updated successfully',
-        vote_id: mockVotes[existingVoteIndex].id
-      });
-    } else {
-      // Create new vote
-      const newVote: MockVote = {
-        id: voteId,
-        poll_id: pollId,
-        option_id: optionId,
-        user_id: mockUserId,
-        voter_ip: clientIP,
-        user_agent: userAgent,
-        created_at: new Date().toISOString()
-      };
+    // Create new vote (either first time voting or multiple votes allowed)
+    const newVote: MockVote = {
+      id: voteId,
+      poll_id: pollId,
+      option_id: optionId,
+      user_id: mockUserId,
+      voter_ip: clientIP,
+      user_agent: userAgent,
+      created_at: new Date().toISOString()
+    };
 
-      mockVotes.push(newVote);
+    mockVotes.push(newVote);
 
-      return NextResponse.json({
-        success: true,
-        message: 'Vote cast successfully',
-        vote_id: voteId
-      });
-    }
+    // Update vote counts in poll data
+    updatePollVoteCounts(undefined, optionId);
+
+    const message = existingVoteIndex !== -1 ? 'Additional vote cast successfully' : 'Vote cast successfully';
+
+    return NextResponse.json({
+      success: true,
+      message: message,
+      vote_id: voteId
+    });
   } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json(

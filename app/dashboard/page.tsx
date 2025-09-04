@@ -9,9 +9,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 interface PollOption {
   id: string;
-  option_text: string;
-  option_order: number;
-  vote_count?: number;
+  text: string;
+  votes: number;
 }
 
 interface Poll {
@@ -62,7 +61,7 @@ export default function DashboardPage() {
       const pollsWithCounts = data.map((poll: any) => ({
         ...poll,
         option_count: poll.options?.length || 0,
-        vote_count: poll.options?.reduce((sum: number, option: any) => sum + (option.vote_count || 0), 0) || 0
+        vote_count: poll.total_votes || 0 // Use total_votes from API instead of calculating
       }));
 
       setPolls(pollsWithCounts);

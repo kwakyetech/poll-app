@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { findPoll } from '@/lib/mockData';
 
 // Mock data store for text responses
 interface MockTextResponse {
@@ -16,7 +17,7 @@ let mockTextResponses: MockTextResponse[] = [];
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const cookieStore = await cookies();
@@ -49,9 +50,9 @@ export async function POST(
     }
 
     const mockUserId = sessionData.user.id;
+    const { id: pollId } = await params;
 
     const { responseText } = await request.json();
-    const pollId = params.id;
 
     if (!responseText || typeof responseText !== 'string' || responseText.trim().length === 0) {
       return NextResponse.json(
@@ -67,11 +68,19 @@ export async function POST(
       );
     }
 
-    // Mock poll validation - only allow text polls (poll ID poll-3 in our mock data)
-    if (pollId !== 'poll-3') {
+    // Validate poll exists and is a text type
+    const poll = findPoll(pollId);
+    if (!poll) {
       return NextResponse.json(
-        { error: 'Poll not found or does not accept text responses' },
+        { error: 'Poll not found' },
         { status: 404 }
+      );
+    }
+
+    if (poll.poll_type !== 'text') {
+      return NextResponse.json(
+        { error: 'This poll does not accept text responses' },
+        { status: 400 }
       );
     }
 
@@ -129,18 +138,26 @@ export async function POST(
 // GET endpoint to retrieve text responses for a poll
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('mock-session');
-    const pollId = params.id;
+    const sessionCookie = cookieStore.get('mock-auth-session');
+    const { id: pollId } = await params;
 
-    // Mock poll validation - only allow text polls (poll ID poll-3 in our mock data)
-    if (pollId !== 'poll-3') {
+    // Validate poll exists and is a text type
+    const poll = findPoll(pollId);
+    if (!poll) {
       return NextResponse.json(
-        { error: 'Poll not found or does not have text responses' },
+        { error: 'Poll not found' },
         { status: 404 }
+      );
+    }
+
+    if (poll.poll_type !== 'text') {
+      return NextResponse.json(
+        { error: 'This poll does not have text responses' },
+        { status: 400 }
       );
     }
 

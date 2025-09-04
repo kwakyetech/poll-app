@@ -112,6 +112,13 @@ export default function CreatePollPage() {
         allowMultipleVotes,
         isAnonymous
       };
+      
+      // Debug logging
+      console.log('Frontend sending poll data:', {
+        pollType,
+        allowMultipleVotes,
+        title: title.trim()
+      });
 
       // Create poll via API
       const response = await fetch('/api/polls', {
@@ -393,19 +400,12 @@ export default function CreatePollPage() {
             <div className="space-y-3 sm:space-y-4">
               <h3 className="text-base sm:text-lg font-medium text-gray-900">Poll Settings</h3>
               
-              {/* Only show multiple votes option for single choice polls */}
+              {/* Show info for single choice polls */}
               {pollType === 'single' && (
-                <div className="flex items-start sm:items-center p-3 sm:p-2 border border-gray-200 rounded-lg">
-                  <input
-                    type="checkbox"
-                    id="allowMultipleVotes"
-                    checked={allowMultipleVotes}
-                    onChange={(e) => setAllowMultipleVotes(e.target.checked)}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-0.5 sm:mt-0 flex-shrink-0"
-                  />
-                  <label htmlFor="allowMultipleVotes" className="ml-3 block text-sm text-gray-700 leading-relaxed">
-                    Allow multiple votes per user
-                  </label>
+                <div className="p-3 sm:p-2 border border-gray-200 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-700">
+                    ✓ Users can select only one option
+                  </p>
                 </div>
               )}
               
