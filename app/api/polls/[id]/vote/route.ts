@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { findPoll } from '@/lib/mockData';
 
 // Mock data store (shared with other routes)
 interface MockVote {
@@ -70,23 +71,18 @@ export async function POST(
                     '127.0.0.1';
     const userAgent = request.headers.get('user-agent') || '';
 
-    // Mock poll validation (simplified)
-    const validPollIds = ['poll-1', 'poll-2', 'poll-3'];
-    if (!validPollIds.includes(pollId)) {
+    // Find the poll in the mock data store
+    const poll = findPoll(pollId);
+    if (!poll) {
       return NextResponse.json(
         { error: 'Poll not found' },
         { status: 404 }
       );
     }
 
-    // Mock option validation
-    const validOptions: Record<string, string[]> = {
-      'poll-1': ['1', '2', '3'],
-      'poll-2': ['4', '5'],
-      'poll-3': ['6', '7', '8']
-    };
-    
-    if (!validOptions[pollId]?.includes(optionId)) {
+    // Validate that the option exists in this poll
+    const validOptionIds = poll.options.map(option => option.id);
+    if (!validOptionIds.includes(optionId)) {
       return NextResponse.json(
         { error: 'Invalid option for this poll' },
         { status: 400 }
