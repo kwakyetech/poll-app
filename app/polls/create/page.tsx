@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
@@ -29,8 +29,14 @@ export default function CreatePollPage() {
   const [isAnonymous, setIsAnonymous] = useState(false);
 
   // Redirect if not authenticated
+  useEffect(() => {
+    if (!user) {
+      router.push('/auth/login');
+    }
+  }, [user, router]);
+
+  // Show loading or return null while redirecting
   if (!user) {
-    router.push('/auth/login');
     return null;
   }
 
