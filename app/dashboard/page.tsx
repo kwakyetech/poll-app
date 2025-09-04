@@ -47,7 +47,7 @@ export default function DashboardPage() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/api/polls', {
+      const response = await fetch(`/api/polls?userId=${user.id}`, {
         credentials: 'include'
       });
 
@@ -55,7 +55,8 @@ export default function DashboardPage() {
         throw new Error('Failed to fetch polls');
       }
 
-      const data = await response.json();
+      const response_data = await response.json();
+      const data = response_data.data || [];
       
       // Transform the data to match dashboard requirements
       const pollsWithCounts = data.map((poll: any) => ({

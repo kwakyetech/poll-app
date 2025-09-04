@@ -28,7 +28,8 @@ export default function PollsPage() {
         throw new Error('Failed to fetch polls');
       }
 
-      const data = await response.json();
+      const response_data = await response.json();
+      const data = response_data.data || [];
       
       // Transform the data to match expected format
       const pollsWithCounts = data.map((poll: any) => ({
