@@ -31,9 +31,9 @@ export async function GET(
       ...poll,
       options: poll.options.map((option: any) => ({
         ...option,
-        vote_count: option.votes.length
+        vote_count: option.votes // votes is already a number in our mock data
       })),
-      total_votes: poll.votes.length,
+      total_votes: poll.options.reduce((sum: number, option: any) => sum + option.votes, 0),
       is_expired: poll.expires_at ? new Date(poll.expires_at) < new Date() : false,
       user_vote: null // In a real app, this would check the current user's vote
     };

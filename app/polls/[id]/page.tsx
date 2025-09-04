@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button';
 
 interface PollOption {
   id: string;
-  option_text: string;
-  option_order: number;
+  text: string;
+  option_order?: number;
   vote_count?: number;
+  votes?: number;
 }
 
 interface Poll {
@@ -295,7 +296,7 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
                       </p>
                       <div className="space-y-3">
                         {poll.options
-                          .sort((a, b) => a.option_order - b.option_order)
+                          .sort((a, b) => (a.option_order || 0) - (b.option_order || 0))
                           .map((option) => {
                             const voteCount = option.vote_count || 0;
                             const percentage = poll.total_votes > 0 
@@ -305,7 +306,7 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
                             return (
                               <div key={option.id} className="bg-gray-50 rounded-lg p-4">
                                 <div className="flex justify-between items-center mb-2">
-                                  <span className="font-medium text-gray-900">{option.option_text}</span>
+                                  <span className="font-medium text-gray-900">{option.text}</span>
                                   <span className="text-sm text-gray-600">
                                     {voteCount} vote{voteCount !== 1 ? 's' : ''} ({percentage}%)
                                   </span>
@@ -407,7 +408,7 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
                       </p>
                     )}
                     {poll.options
-                      .sort((a, b) => a.option_order - b.option_order)
+                      .sort((a, b) => (a.option_order || 0) - (b.option_order || 0))
                       .map((option) => (
                       <div key={option.id} className="flex items-start sm:items-center p-3 sm:p-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                         <input
@@ -423,7 +424,7 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
                           htmlFor={`option-${option.id}`} 
                           className="ml-3 block text-sm sm:text-base font-medium text-gray-700 cursor-pointer hover:text-gray-900 transition-colors leading-relaxed"
                         >
-                          {option.option_text}
+                          {option.text}
                         </label>
                       </div>
                     ))}
