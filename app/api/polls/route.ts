@@ -1,47 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-
-// Mock data store (in a real app, this would be a database)
-let mockPolls: any[] = [
-  {
-    id: 'poll-1',
-    title: 'Favorite Programming Language',
-    description: 'What is your favorite programming language for web development?',
-    poll_type: 'single',
-    created_by: 'demo-user-1',
-    created_at: new Date().toISOString(),
-    expires_at: null,
-    allow_multiple_votes: false,
-    is_anonymous: false,
-    is_active: true,
-    options: [
-      { id: '1', poll_id: 'poll-1', option_text: 'JavaScript', option_order: 1, votes: [] },
-      { id: '2', poll_id: 'poll-1', option_text: 'TypeScript', option_order: 2, votes: [] },
-      { id: '3', poll_id: 'poll-1', option_text: 'Python', option_order: 3, votes: [] },
-      { id: '4', poll_id: 'poll-1', option_text: 'Go', option_order: 4, votes: [] }
-    ],
-    votes: []
-  },
-  {
-    id: 'poll-2',
-    title: 'Best Development Framework',
-    description: 'Which framework do you prefer for building web applications?',
-    poll_type: 'multiple',
-    created_by: 'demo-user-1',
-    created_at: new Date().toISOString(),
-    expires_at: null,
-    allow_multiple_votes: true,
-    is_anonymous: true,
-    is_active: true,
-    options: [
-      { id: '5', poll_id: 'poll-2', option_text: 'React', option_order: 1, votes: [] },
-      { id: '6', poll_id: 'poll-2', option_text: 'Vue.js', option_order: 2, votes: [] },
-      { id: '7', poll_id: 'poll-2', option_text: 'Angular', option_order: 3, votes: [] },
-      { id: '8', poll_id: 'poll-2', option_text: 'Svelte', option_order: 4, votes: [] }
-    ],
-    votes: []
-  }
-];
+import { getPolls, addPoll } from '@/lib/mockData';
 
 /**
  * GET /api/polls - Fetch all polls or user-specific polls
@@ -51,7 +10,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
-    let polls = [...mockPolls];
+    let polls = [...getPolls()];
 
     // Filter by user if userId is provided
     if (userId) {
@@ -135,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     // Create new poll
     const newPoll = {
-      id: (mockPolls.length + 1).toString(),
+      id: `poll-${getPolls().length + 1}`,
       title,
       description: description || '',
       poll_type: pollType || 'single',
@@ -152,7 +111,7 @@ export async function POST(request: NextRequest) {
     // Create poll options (only for non-text polls)
     if (pollType !== 'text' && options && options.length > 0) {
       newPoll.options = options.map((option: string, index: number) => ({
-        id: `${newPoll.id}-${index + 1}`,
+        id: `${newPoll.id}-option-${index + 1}`,
         poll_id: newPoll.id,
         option_text: option,
         option_order: index + 1,
@@ -161,7 +120,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Add to mock database
-    mockPolls.push(newPoll);
+    addPoll(newPoll);
 
     return NextResponse.json(
       { data: newPoll, message: 'Poll created successfully' },
