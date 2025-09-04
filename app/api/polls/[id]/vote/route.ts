@@ -19,24 +19,42 @@ let mockVotes: MockVote[] = [];
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('mock-session');
+    const sessionCookie = cookieStore.get('mock-auth-session');
     
     // Mock authentication check
-    if (!sessionCookie || sessionCookie.value !== 'authenticated') {
+    if (!sessionCookie) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const { id: pollId } = params;
+    // Parse and validate session
+    let sessionData;
+    try {
+      sessionData = JSON.parse(sessionCookie.value);
+      // Check if session is expired
+      if (sessionData.expires_at <= Math.floor(Date.now() / 1000)) {
+        return NextResponse.json(
+          { error: 'Session expired' },
+          { status: 401 }
+        );
+      }
+    } catch (error) {
+      return NextResponse.json(
+        { error: 'Invalid session' },
+        { status: 401 }
+      );
+    }
+
+    const { id: pollId } = await params;
     const body = await request.json();
     const { optionId } = body;
-    const mockUserId = 'mock-user-123';
+    const mockUserId = sessionData.user.id;
 
     // Validate required fields
     if (!optionId) {
@@ -53,7 +71,7 @@ export async function POST(
     const userAgent = request.headers.get('user-agent') || '';
 
     // Mock poll validation (simplified)
-    const validPollIds = ['1', '2', '3'];
+    const validPollIds = ['poll-1', 'poll-2', 'poll-3'];
     if (!validPollIds.includes(pollId)) {
       return NextResponse.json(
         { error: 'Poll not found' },
@@ -63,9 +81,9 @@ export async function POST(
 
     // Mock option validation
     const validOptions: Record<string, string[]> = {
-      '1': ['1', '2', '3'],
-      '2': ['4', '5'],
-      '3': ['6', '7', '8']
+      'poll-1': ['1', '2', '3'],
+      'poll-2': ['4', '5'],
+      'poll-3': ['6', '7', '8']
     };
     
     if (!validOptions[pollId]?.includes(optionId)) {

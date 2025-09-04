@@ -20,17 +20,35 @@ export async function POST(
 ) {
   try {
     const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('mock-session');
+    const sessionCookie = cookieStore.get('mock-auth-session');
     
     // Mock authentication check
-    if (!sessionCookie || sessionCookie.value !== 'authenticated') {
+    if (!sessionCookie) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const mockUserId = 'mock-user-123';
+    // Parse and validate session
+    let sessionData;
+    try {
+      sessionData = JSON.parse(sessionCookie.value);
+      // Check if session is expired
+      if (sessionData.expires_at <= Math.floor(Date.now() / 1000)) {
+        return NextResponse.json(
+          { error: 'Session expired' },
+          { status: 401 }
+        );
+      }
+    } catch (error) {
+      return NextResponse.json(
+        { error: 'Invalid session' },
+        { status: 401 }
+      );
+    }
+
+    const mockUserId = sessionData.user.id;
 
     const { responseText } = await request.json();
     const pollId = params.id;
@@ -49,8 +67,8 @@ export async function POST(
       );
     }
 
-    // Mock poll validation - only allow text polls (poll ID 3 in our mock data)
-    if (pollId !== '3') {
+    // Mock poll validation - only allow text polls (poll ID poll-3 in our mock data)
+    if (pollId !== 'poll-3') {
       return NextResponse.json(
         { error: 'Poll not found or does not accept text responses' },
         { status: 404 }
@@ -118,8 +136,8 @@ export async function GET(
     const sessionCookie = cookieStore.get('mock-session');
     const pollId = params.id;
 
-    // Mock poll validation - only allow text polls (poll ID 3 in our mock data)
-    if (pollId !== '3') {
+    // Mock poll validation - only allow text polls (poll ID poll-3 in our mock data)
+    if (pollId !== 'poll-3') {
       return NextResponse.json(
         { error: 'Poll not found or does not have text responses' },
         { status: 404 }
