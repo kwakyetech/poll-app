@@ -1,24 +1,42 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
-import { createBrowserClient } from '@supabase/ssr';
-import { isSupabaseConfigured } from '@/lib/supabaseClient';
 import { UserProfile } from '@/types';
 
-// Create browser client for client-side operations
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// Mock User type (simplified version without Supabase dependencies)
+interface MockUser {
+  id: string;
+  email: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Mock Session type
+interface MockSession {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  expires_at: number;
+  token_type: string;
+  user: MockUser;
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: MockUser | null;
   userProfile: UserProfile | null;
   displayName: string | null;
-  session: Session | null;
+  session: MockSession | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  signIn: (usernameOrEmail: string, password: string) => Promise<boolean>;
+  signUp: (userData: {
+    username: string;
+    firstname: string;
+    lastname: string;
+    middlename?: string;
+    email: string;
+    password: string;
+  }) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -28,137 +46,152 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   loading: true,
   signOut: async () => {},
+  signIn: async () => false,
+  signUp: async () => false,
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<MockUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<MockSession | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Function to fetch user profile
-  const fetchUserProfile = async (userId: string) => {
-    if (!isSupabaseConfigured) {
-      // Mock profile for demo mode
-      const mockProfile: UserProfile = {
-        id: 'mock-profile-id',
-        user_id: userId,
-        username: 'testuser',
-        firstname: 'Test',
-        lastname: 'User',
-        middlename: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setUserProfile(mockProfile);
-      setDisplayName(mockProfile.username);
-      return;
-    }
+  // Mock users database (in a real app, this would be in a backend)
+  const [mockUsers] = useState<Array<{
+    user: MockUser;
+    profile: UserProfile;
+    password: string;
+  }>>([{
+    user: {
+      id: 'demo-user-1',
+      email: 'demo@example.com',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    profile: {
+      id: 'demo-profile-1',
+      user_id: 'demo-user-1',
+      username: 'demouser',
+      firstname: 'Demo',
+      lastname: 'User',
+      middlename: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+    password: 'demo123'
+  }]);
 
-    try {
-      const { data, error } = await supabase
-        .rpc('get_user_profile', { user_id: userId });
-      
-      if (error) {
-        console.error('Error fetching user profile:', error);
-        return;
-      }
-      
-      if (data) {
-        setUserProfile(data);
-        setDisplayName(data.username);
-      }
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-    }
-  };
-
+  // Check for existing session on mount
   useEffect(() => {
-    if (!isSupabaseConfigured) {
-      // In mock mode, set a default authenticated user
-      const mockUser = {
-        id: 'mock-user-id',
-        email: 'test@example.com',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        aud: 'authenticated',
-        role: 'authenticated',
-        email_confirmed_at: new Date().toISOString(),
-        phone_confirmed_at: null,
-        confirmation_sent_at: null,
-        recovery_sent_at: null,
-        last_sign_in_at: new Date().toISOString(),
-        app_metadata: {},
-        user_metadata: {},
-        identities: [],
-        factors: []
-      } as User;
-      
-      const mockSession = {
-        access_token: 'mock-token',
-        refresh_token: 'mock-refresh',
-        expires_in: 3600,
-        expires_at: Math.floor(Date.now() / 1000) + 3600,
-        token_type: 'bearer',
-        user: mockUser
-      } as Session;
-      
-      setUser(mockUser);
-      setSession(mockSession);
-      fetchUserProfile(mockUser.id);
-      setLoading(false);
-      return;
-    }
-
-    // Get initial session
-    const getInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        await fetchUserProfile(session.user.id);
-      } else {
-        setUserProfile(null);
-        setDisplayName(null);
+    const checkExistingSession = () => {
+      const savedSession = localStorage.getItem('mock-auth-session');
+      if (savedSession) {
+        try {
+          const parsedSession = JSON.parse(savedSession);
+          if (parsedSession.expires_at > Math.floor(Date.now() / 1000)) {
+            setSession(parsedSession);
+            setUser(parsedSession.user);
+            
+            // Find and set user profile
+            const userData = mockUsers.find(u => u.user.id === parsedSession.user.id);
+            if (userData) {
+              setUserProfile(userData.profile);
+              setDisplayName(userData.profile.username);
+            }
+            
+            // Ensure cookie is also set for middleware
+            document.cookie = `mock-auth-session=${JSON.stringify(parsedSession)}; path=/; max-age=${parsedSession.expires_at - Math.floor(Date.now() / 1000)}; SameSite=Lax`;
+          } else {
+            localStorage.removeItem('mock-auth-session');
+            document.cookie = 'mock-auth-session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          }
+        } catch (error) {
+          console.error('Error parsing saved session:', error);
+          localStorage.removeItem('mock-auth-session');
+          document.cookie = 'mock-auth-session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        }
       }
-      
       setLoading(false);
     };
 
-    getInitialSession();
+    checkExistingSession();
+  }, [mockUsers]);
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, session: Session | null) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          await fetchUserProfile(session.user.id);
-        } else {
-          setUserProfile(null);
-          setDisplayName(null);
-        }
-        
-        setLoading(false);
-      }
+  const signIn = async (usernameOrEmail: string, password: string): Promise<boolean> => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Find user by username or email
+    const userData = mockUsers.find(u => 
+      u.profile.username === usernameOrEmail || 
+      u.user.email === usernameOrEmail
     );
+    
+    if (userData && userData.password === password) {
+      const mockSession: MockSession = {
+        access_token: 'mock-token-' + Date.now(),
+        refresh_token: 'mock-refresh-' + Date.now(),
+        expires_in: 3600,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        token_type: 'bearer',
+        user: userData.user
+      };
+      
+      setUser(userData.user);
+      setSession(mockSession);
+      setUserProfile(userData.profile);
+      setDisplayName(userData.profile.username);
+      
+      // Save session to localStorage
+      localStorage.setItem('mock-auth-session', JSON.stringify(mockSession));
+      
+      // Also set cookie for middleware
+      document.cookie = `mock-auth-session=${JSON.stringify(mockSession)}; path=/; max-age=3600; SameSite=Lax`;
+      
+      return true;
+    }
+    
+    return false;
+  };
 
-    return () => subscription.unsubscribe();
-  }, []);
+  const signUp = async (userData: {
+    username: string;
+    firstname: string;
+    lastname: string;
+    middlename?: string;
+    email: string;
+    password: string;
+  }): Promise<boolean> => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Check if username or email already exists
+    const existingUser = mockUsers.find(u => 
+      u.profile.username === userData.username || 
+      u.user.email === userData.email
+    );
+    
+    if (existingUser) {
+      return false; // User already exists
+    }
+    
+    // In a real app, this would create the user in the backend
+    // For demo purposes, we'll just simulate success
+    console.log('Mock user registration:', userData);
+    
+    return true;
+  };
 
   const signOut = async () => {
-    if (isSupabaseConfigured) {
-      await supabase.auth.signOut();
-    } else {
-      // In mock mode, just clear the local state
-      setUser(null);
-      setSession(null);
-      setUserProfile(null);
-      setDisplayName(null);
-    }
+    setUser(null);
+    setSession(null);
+    setUserProfile(null);
+    setDisplayName(null);
+    localStorage.removeItem('mock-auth-session');
+    
+    // Clear cookie
+    document.cookie = 'mock-auth-session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
   };
 
   const value = {
@@ -168,6 +201,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     loading,
     signOut,
+    signIn,
+    signUp,
   };
 
   return (

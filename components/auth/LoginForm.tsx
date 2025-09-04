@@ -4,14 +4,6 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { createBrowserClient } from '@supabase/ssr';
-import { isSupabaseConfigured } from '@/lib/supabaseClient';
-
-// Create browser client for client-side operations
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -23,6 +15,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 const formSchema = z.object({
   usernameOrEmail: z.string().min(1, {
@@ -35,9 +28,11 @@ const formSchema = z.object({
 
 export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirectTo') || '/dashboard';
+  const { signIn } = useAuth();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -49,45 +44,20 @@ export default function LoginForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
+    setError(null);
 
     try {
-      if (!isSupabaseConfigured) {
-        // Mock authentication - simulate successful login
-        console.log('Mock login successful for:', values.usernameOrEmail);
-        // Use window.location.href for full page reload to ensure middleware gets updated session
-        window.location.href = redirectTo;
-        return;
-      }
-
-      // First, find the user's email using username or email
-      const { data: userData, error: userError } = await supabase
-        .rpc('find_user_by_username_or_email', {
-          username_or_email: values.usernameOrEmail
-        });
-
-      if (userError || !userData) {
-        console.error('User lookup error:', userError?.message || 'User not found');
-        alert('Invalid username/email or password.');
-        return;
-      }
-
-      const response = await supabase.auth.signInWithPassword({
-        email: userData.email,
-        password: values.password,
-      });
-
-      if (response.error) {
-        console.error('Login error:', response.error.message);
-        // You can replace this with a toast notification later
-        alert(`Login failed: ${response.error.message}`);
-      } else if (response.data) {
-        console.log('Login successful:', response.data.user);
-        // Use window.location.href for full page reload to ensure middleware gets updated session
-        window.location.href = redirectTo;
+      const success = await signIn(values.usernameOrEmail, values.password);
+      
+      if (success) {
+        console.log('Login successful for:', values.usernameOrEmail);
+        router.push(redirectTo);
+      } else {
+        setError('Invalid username/email or password. Please try again.');
       }
     } catch (error) {
-      console.error('Unexpected error:', error);
-      alert('An unexpected error occurred. Please try again.');
+      console.error('Login error:', error);
+      setError('An error occurred during login. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -102,10 +72,16 @@ export default function LoginForm() {
         </p>
       </div>
 
-      {!isSupabaseConfigured && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-          <p className="text-xs sm:text-sm text-blue-800">
-            ℹ️ Running in demo mode. You can use any username/email and password to sign in.
+      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+        <p className="text-xs sm:text-sm text-blue-800">
+          ℹ️ <strong>Demo Mode:</strong> Use username "demouser" or email "demo@example.com" with password "demo123" to sign in.
+        </p>
+      </div>
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+          <p className="text-xs sm:text-sm text-red-800">
+            ❌ {error}
           </p>
         </div>
       )}

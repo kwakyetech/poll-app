@@ -1,62 +1,68 @@
-import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+
+// Mock data store (in a real app, this would be a database)
+let mockPolls: any[] = [
+  {
+    id: '1',
+    title: 'Favorite Programming Language',
+    description: 'What is your favorite programming language for web development?',
+    poll_type: 'single',
+    created_by: 'demo-user',
+    created_at: new Date().toISOString(),
+    expires_at: null,
+    allow_multiple_votes: false,
+    is_anonymous: false,
+    is_active: true,
+    options: [
+      { id: '1', poll_id: '1', option_text: 'JavaScript', option_order: 1, votes: [] },
+      { id: '2', poll_id: '1', option_text: 'TypeScript', option_order: 2, votes: [] },
+      { id: '3', poll_id: '1', option_text: 'Python', option_order: 3, votes: [] },
+      { id: '4', poll_id: '1', option_text: 'Go', option_order: 4, votes: [] }
+    ],
+    votes: []
+  },
+  {
+    id: '2',
+    title: 'Best Development Framework',
+    description: 'Which framework do you prefer for building web applications?',
+    poll_type: 'multiple',
+    created_by: 'demo-user',
+    created_at: new Date().toISOString(),
+    expires_at: null,
+    allow_multiple_votes: true,
+    is_anonymous: true,
+    is_active: true,
+    options: [
+      { id: '5', poll_id: '2', option_text: 'React', option_order: 1, votes: [] },
+      { id: '6', poll_id: '2', option_text: 'Vue.js', option_order: 2, votes: [] },
+      { id: '7', poll_id: '2', option_text: 'Angular', option_order: 3, votes: [] },
+      { id: '8', poll_id: '2', option_text: 'Svelte', option_order: 4, votes: [] }
+    ],
+    votes: []
+  }
+];
 
 /**
  * GET /api/polls - Fetch all polls or user-specific polls
  */
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) => {
-                cookieStore.set(name, value, options);
-              });
-            } catch (error) {
-              // The `setAll` method was called from a Server Component.
-              // This can be ignored if you have middleware refreshing
-              // user sessions.
-            }
-          },
-        },
-      }
-    );
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
-    let query = supabase
-      .from('polls')
-      .select(`
-        *,
-        options:poll_options(*),
-        votes:votes(count)
-      `)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false });
+    let polls = [...mockPolls];
 
     // Filter by user if userId is provided
     if (userId) {
-      query = query.eq('created_by', userId);
+      polls = polls.filter(poll => poll.created_by === userId);
     }
 
-    const { data: polls, error } = await query;
+    // Filter only active polls
+    polls = polls.filter(poll => poll.is_active);
 
-    if (error) {
-      console.error('Error fetching polls:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch polls' },
-        { status: 500 }
-      );
-    }
+    // Sort by created_at descending
+    polls.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     return NextResponse.json({ data: polls });
   } catch (error) {
@@ -73,39 +79,30 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Check for mock authentication session
     const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) => {
-                cookieStore.set(name, value, options);
-              });
-            } catch (error) {
-              // The `setAll` method was called from a Server Component.
-              // This can be ignored if you have middleware refreshing
-              // user sessions.
-            }
-          },
-        },
-      }
-    );
+    const mockSession = cookieStore.get('mock-auth-session');
     
-    // Get the current user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    if (!mockSession) {
       return NextResponse.json(
         { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    let sessionData;
+    try {
+      sessionData = JSON.parse(mockSession.value);
+      // Check if session is expired
+      if (sessionData.expires_at <= Math.floor(Date.now() / 1000)) {
+        return NextResponse.json(
+          { error: 'Session expired' },
+          { status: 401 }
+        );
+      }
+    } catch (error) {
+      return NextResponse.json(
+        { error: 'Invalid session' },
         { status: 401 }
       );
     }
@@ -129,65 +126,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create the poll
-    const { data: poll, error: pollError } = await supabase
-      .from('polls')
-      .insert({
-        title,
-        description,
-        poll_type: pollType || 'single',
-        created_by: user.id,
-        expires_at: expiresAt || null,
-        allow_multiple_votes: allowMultipleVotes || false,
-        is_anonymous: isAnonymous || false,
-        is_active: true,
-      })
-      .select()
-      .single();
-
-    if (pollError) {
-      console.error('Error creating poll:', pollError);
-      return NextResponse.json(
-        { error: 'Failed to create poll' },
-        { status: 500 }
-      );
-    }
+    // Create new poll
+    const newPoll = {
+      id: (mockPolls.length + 1).toString(),
+      title,
+      description: description || '',
+      poll_type: pollType || 'single',
+      created_by: sessionData.user.id,
+      created_at: new Date().toISOString(),
+      expires_at: expiresAt || null,
+      allow_multiple_votes: allowMultipleVotes || false,
+      is_anonymous: isAnonymous || false,
+      is_active: true,
+      options: [],
+      votes: []
+    };
 
     // Create poll options (only for non-text polls)
     if (pollType !== 'text' && options && options.length > 0) {
-      const pollOptions = options.map((option: string, index: number) => ({
-        poll_id: poll.id,
+      newPoll.options = options.map((option: string, index: number) => ({
+        id: `${newPoll.id}-${index + 1}`,
+        poll_id: newPoll.id,
         option_text: option,
         option_order: index + 1,
+        votes: []
       }));
-
-      const { error: optionsError } = await supabase
-        .from('poll_options')
-        .insert(pollOptions);
-
-      if (optionsError) {
-        console.error('Error creating poll options:', optionsError);
-        // Clean up the poll if options creation failed
-        await supabase.from('polls').delete().eq('id', poll.id);
-        return NextResponse.json(
-          { error: 'Failed to create poll options' },
-          { status: 500 }
-        );
-      }
     }
 
-    // Fetch the complete poll with options
-    const { data: completePoll } = await supabase
-      .from('polls')
-      .select(`
-        *,
-        options:poll_options(*)
-      `)
-      .eq('id', poll.id)
-      .single();
+    // Add to mock database
+    mockPolls.push(newPoll);
 
     return NextResponse.json(
-      { data: completePoll, message: 'Poll created successfully' },
+      { data: newPoll, message: 'Poll created successfully' },
       { status: 201 }
     );
   } catch (error) {
