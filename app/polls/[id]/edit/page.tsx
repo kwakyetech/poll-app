@@ -3,9 +3,29 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { createBrowserClient } from '@supabase/ssr';
 import { useAuth } from '@/context/AuthContext';
-import { Poll, PollOption } from '@/types';
+
+interface PollOption {
+  id: string;
+  option_text: string;
+  option_order: number;
+  vote_count?: number;
+}
+
+interface Poll {
+  id: string;
+  title: string;
+  description?: string;
+  options: PollOption[];
+  is_expired?: boolean;
+  is_active?: boolean;
+  is_anonymous?: boolean;
+  total_votes?: number;
+  allow_multiple_votes?: boolean;
+  poll_type?: 'single' | 'multiple' | 'text';
+  created_at: string;
+  expires_at?: string;
+}
 
 interface EditPollFormData {
   title: string;
@@ -47,35 +67,22 @@ export default function EditPollPage() {
   const fetchPoll = async () => {
     try {
       setLoading(true);
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
+      
+      const response = await fetch(`/api/polls/${pollId}`, {
+        credentials: 'include'
+      });
 
-      // Fetch poll with options
-      const { data: poll, error: pollError } = await supabase
-        .from('polls')
-        .select('*')
-        .eq('id', pollId)
-        .eq('created_by', user?.id)
-        .single();
+      if (!response.ok) {
+        throw new Error('Poll not found or you do not have permission to edit it');
+      }
 
-      if (pollError) throw pollError;
-      if (!poll) throw new Error('Poll not found or you do not have permission to edit it');
-
-      const { data: options, error: optionsError } = await supabase
-        .from('poll_options')
-        .select('*')
-        .eq('poll_id', pollId)
-        .order('created_at');
-
-      if (optionsError) throw optionsError;
+      const poll = await response.json();
 
       setOriginalPoll(poll);
       setFormData({
         title: poll.title,
         description: poll.description || '',
-        options: options.map(opt => ({ id: opt.id, text: opt.option_text })),
+        options: poll.options.map((opt: PollOption) => ({ id: opt.id, text: opt.option_text })),
         expires_at: poll.expires_at ? new Date(poll.expires_at).toISOString().slice(0, 16) : '',
         allow_multiple_votes: poll.allow_multiple_votes,
         is_anonymous: poll.is_anonymous
@@ -107,65 +114,32 @@ export default function EditPollPage() {
       setSaving(true);
       setError(null);
 
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-
-      // Update poll
-      const { error: pollError } = await supabase
-        .from('polls')
-        .update({
-          title: formData.title.trim(),
-          description: formData.description.trim() || null,
-          expires_at: formData.expires_at || null,
-          allow_multiple_votes: formData.allow_multiple_votes,
-          is_anonymous: formData.is_anonymous
-        })
-        .eq('id', pollId)
-        .eq('created_by', user.id);
-
-      if (pollError) throw pollError;
-
-      // Handle options updates
-      const existingOptions = formData.options.filter(opt => opt.id && opt.text.trim());
-      const newOptions = formData.options.filter(opt => !opt.id && opt.text.trim());
-      const optionsToDelete = originalPoll ? 
-        await supabase.from('poll_options').select('id').eq('poll_id', pollId) : { data: [] };
+      const validOptions = formData.options.filter(opt => opt.text.trim());
       
-      const existingOptionIds = existingOptions.map(opt => opt.id);
-      const toDelete = optionsToDelete.data?.filter(opt => !existingOptionIds.includes(opt.id)) || [];
+      const updateData = {
+        title: formData.title.trim(),
+        description: formData.description.trim() || null,
+        expires_at: formData.expires_at || null,
+        allow_multiple_votes: formData.allow_multiple_votes,
+        is_anonymous: formData.is_anonymous,
+        options: validOptions.map((option, index) => ({
+          id: option.id,
+          option_text: option.text.trim(),
+          option_order: index + 1
+        }))
+      };
 
-      // Delete removed options
-      if (toDelete.length > 0) {
-        const { error: deleteError } = await supabase
-          .from('poll_options')
-          .delete()
-          .in('id', toDelete.map(opt => opt.id));
-        if (deleteError) throw deleteError;
-      }
+      const response = await fetch(`/api/polls/${pollId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(updateData)
+      });
 
-      // Update existing options
-      for (const option of existingOptions) {
-        const { error: updateError } = await supabase
-          .from('poll_options')
-          .update({ option_text: option.text.trim() })
-          .eq('id', option.id);
-        if (updateError) throw updateError;
-      }
-
-      // Insert new options
-      if (newOptions.length > 0) {
-        const { error: insertError } = await supabase
-          .from('poll_options')
-          .insert(
-            newOptions.map((option, index) => ({
-              poll_id: pollId,
-              option_text: option.text.trim(),
-              option_order: existingOptions.length + index + 1
-            }))
-          );
-        if (insertError) throw insertError;
+      if (!response.ok) {
+        throw new Error('Failed to update poll');
       }
 
       router.push('/dashboard');

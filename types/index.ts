@@ -1,6 +1,4 @@
-import { Session } from '@supabase/supabase-js';
-
-// Database types matching Supabase schema
+// Database types for the polling application
 export interface User {
   id: string;
   email: string;

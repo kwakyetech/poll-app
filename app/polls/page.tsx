@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { createBrowserClient } from '@supabase/ssr';
 import { useAuth } from '@/context/AuthContext';
 import { PollWithCountsExtended } from '@/types';
 
@@ -22,34 +21,21 @@ export default function PollsPage() {
       setLoading(true);
       setError(null);
 
-      // Create Supabase client for browser
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-
-      // Fetch polls with option and vote counts
-      const { data, error } = await supabase
-        .from('polls')
-        .select(`
-          *,
-          poll_options(count),
-          votes(count)
-        `)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        throw error;
+      // Fetch polls from our API endpoint
+      const response = await fetch('/api/polls');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch polls');
       }
 
-      // Transform the data to include counts
-      const pollsWithCounts = data?.map((poll: PollWithCountsExtended) => ({
+      const data = await response.json();
+      
+      // Transform the data to match expected format
+      const pollsWithCounts = data.map((poll: any) => ({
         ...poll,
-        options: [], // Initialize with empty options array
-        option_count: poll.poll_options?.[0]?.count || 0,
-        vote_count: poll.votes?.[0]?.count || 0
-      })) || [];
+        option_count: poll.options?.length || 0,
+        vote_count: poll.total_votes || 0
+      }));
 
       setPolls(pollsWithCounts);
     } catch (err: unknown) {

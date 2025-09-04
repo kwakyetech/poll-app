@@ -2,12 +2,12 @@
 
 import { useState, use, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { createBrowserClient } from '@supabase/ssr';
 
 interface PollOption {
   id: string;
   option_text: string;
   option_order: number;
+  vote_count?: number;
 }
 
 interface Poll {
@@ -42,11 +42,6 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
   const [textResponses, setTextResponses] = useState<any[]>([]);
   const [hasVoted, setHasVoted] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
 
   const fetchTextResponses = async () => {
     if (!poll || poll.poll_type !== 'text') return;

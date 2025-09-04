@@ -4,14 +4,6 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { createBrowserClient } from '@supabase/ssr';
-import { isSupabaseConfigured } from '@/lib/supabaseClient';
-
-// Create browser client for client-side operations
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -78,63 +70,24 @@ export default function RegisterForm() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!isSupabaseConfigured) {
-      alert('Supabase is not configured. Please set up your environment variables.');
-      return;
-    }
-
     setIsLoading(true);
 
     try {
-      // First, check if username is already taken
-      const { data: existingUser } = await supabase
-        .from('user_profiles')
-        .select('username')
-        .eq('username', values.username)
-        .single();
-
-      if (existingUser) {
-        alert('Username is already taken. Please choose a different username.');
-        setIsLoading(false);
-        return;
-      }
-
-      // Create the auth user
-      const response = await supabase.auth.signUp({
-        email: values.email,
-        password: values.password,
-      });
-
-      if (response.error) {
-        console.error('Registration error:', response.error.message);
-        alert(`Registration failed: ${response.error.message}`);
-      } else if (response.data?.user) {
-        // Create user profile
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .insert({
-            user_id: response.data.user.id,
-            username: values.username,
-            firstname: values.firstname,
-            lastname: values.lastname,
-            middlename: values.middlename || null,
-          });
-
-        if (profileError) {
-          console.error('Profile creation error:', profileError.message);
-          alert(`Profile creation failed: ${profileError.message}`);
-        } else {
-          console.log('Registration successful:', response.data.user);
-          setIsSuccess(true);
-          alert('Registration successful! Please check your email for verification.');
-          setTimeout(() => {
-            router.push('/auth/login');
-          }, 2000);
-        }
-      }
+      // Mock registration - simulate successful account creation
+      console.log('Mock registration successful for:', values.username, values.email);
+      
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setIsSuccess(true);
+      
+      // Redirect to login after success
+      setTimeout(() => {
+        router.push('/auth/login');
+      }, 2000);
     } catch (error) {
-      console.error('Unexpected error:', error);
-      alert('An unexpected error occurred. Please try again.');
+      console.error('Registration error:', error);
+      alert('An error occurred during registration. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -151,7 +104,7 @@ export default function RegisterForm() {
           </div>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-green-600">Account Created!</h2>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Please check your email to verify your account before signing in.
+            Your account has been created successfully. Redirecting to login...
           </p>
         </div>
       </div>
@@ -167,13 +120,11 @@ export default function RegisterForm() {
         </p>
       </div>
 
-      {!isSupabaseConfigured && (
-        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-          <p className="text-xs sm:text-sm text-yellow-800">
-            ⚠️ Supabase is not configured. Please set up your environment variables in .env.local
-          </p>
-        </div>
-      )}
+      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+        <p className="text-xs sm:text-sm text-blue-800">
+          ℹ️ Running in demo mode. Account creation is simulated.
+        </p>
+      </div>
       
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">

@@ -3,11 +3,33 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { createBrowserClient } from '@supabase/ssr';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { PollWithCountsExtended, PollDatabaseResponse } from '@/types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from 'recharts';
+
+interface PollOption {
+  id: string;
+  option_text: string;
+  option_order: number;
+  vote_count?: number;
+}
+
+interface Poll {
+  id: string;
+  title: string;
+  description?: string;
+  options: PollOption[];
+  is_expired?: boolean;
+  is_active?: boolean;
+  is_anonymous?: boolean;
+  total_votes?: number;
+  allow_multiple_votes?: boolean;
+  poll_type?: 'single' | 'multiple' | 'text';
+  created_at: string;
+  expires_at?: string;
+  option_count?: number;
+  vote_count?: number;
+}
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -25,34 +47,22 @@ export default function DashboardPage() {
       setLoading(true);
       setError(null);
 
-      // Create Supabase client for browser
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
+      const response = await fetch('/api/polls', {
+        credentials: 'include'
+      });
 
-      // Fetch user's polls with option and vote counts
-      const { data, error } = await supabase
-        .from('polls')
-        .select(`
-          *,
-          poll_options(count),
-          votes(count)
-        `)
-        .eq('created_by', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        throw new Error('Failed to fetch polls');
       }
 
-      // Transform the data to include counts
-      const pollsWithCounts = data?.map((poll: PollDatabaseResponse) => ({
+      const data = await response.json();
+      
+      // Transform the data to match dashboard requirements
+      const pollsWithCounts = data.map((poll: any) => ({
         ...poll,
-        options: [], // Initialize with empty options array
-        option_count: poll.poll_options?.[0]?.count || 0,
-        vote_count: poll.votes?.[0]?.count || 0
-      })) || [];
+        option_count: poll.options?.length || 0,
+        vote_count: poll.options?.reduce((sum: number, option: any) => sum + (option.vote_count || 0), 0) || 0
+      }));
 
       setPolls(pollsWithCounts);
     } catch (err: unknown) {
@@ -87,33 +97,13 @@ export default function DashboardPage() {
     try {
       setDeletingPollId(pollId);
 
-      // Create Supabase client for browser
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
+      const response = await fetch(`/api/polls/${pollId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
 
-      // Delete votes first (due to foreign key constraints)
-      await supabase
-        .from('votes')
-        .delete()
-        .eq('poll_id', pollId);
-
-      // Delete poll options
-      await supabase
-        .from('poll_options')
-        .delete()
-        .eq('poll_id', pollId);
-
-      // Delete the poll
-      const { error } = await supabase
-        .from('polls')
-        .delete()
-        .eq('id', pollId)
-        .eq('created_by', user?.id); // Extra security check
-
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        throw new Error('Failed to delete poll');
       }
 
       // Remove from local state
@@ -129,20 +119,17 @@ export default function DashboardPage() {
 
   const togglePollStatus = async (pollId: string, currentStatus: boolean) => {
     try {
-      // Create Supabase client for browser
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
+      const response = await fetch(`/api/polls/${pollId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ is_active: !currentStatus })
+      });
 
-      const { error } = await supabase
-        .from('polls')
-        .update({ is_active: !currentStatus })
-        .eq('id', pollId)
-        .eq('created_by', user?.id);
-
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        throw new Error('Failed to update poll status');
       }
 
       // Update local state

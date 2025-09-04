@@ -1,6 +1,18 @@
-import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+
+// Mock data store (shared with other routes)
+interface MockVote {
+  id: string;
+  poll_id: string;
+  option_id: string;
+  user_id: string;
+  voter_ip: string;
+  user_agent: string;
+  created_at: string;
+}
+
+let mockVotes: MockVote[] = [];
 
 /**
  * POST /api/polls/[id]/vote - Cast a vote on a specific poll
@@ -11,44 +23,20 @@ export async function POST(
 ) {
   try {
     const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return cookieStore.getAll();
-          },
-          setAll(cookiesToSet) {
-            try {
-              cookiesToSet.forEach(({ name, value, options }) => {
-                cookieStore.set(name, value, options);
-              });
-            } catch (error) {
-              // The `setAll` method was called from a Server Component.
-              // This can be ignored if you have middleware refreshing
-              // user sessions.
-            }
-          },
-        },
-      }
-    );
-    const { id: pollId } = params;
-    const body = await request.json();
-    const { optionId } = body;
-
-    // Get the current user
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const sessionCookie = cookieStore.get('mock-session');
+    
+    // Mock authentication check
+    if (!sessionCookie || sessionCookie.value !== 'authenticated') {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
+
+    const { id: pollId } = params;
+    const body = await request.json();
+    const { optionId } = body;
+    const mockUserId = 'mock-user-123';
 
     // Validate required fields
     if (!optionId) {
@@ -58,158 +46,75 @@ export async function POST(
       );
     }
 
-    // Validate UUID formats
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(pollId) || !uuidRegex.test(optionId)) {
-      return NextResponse.json(
-        { error: 'Invalid ID format' },
-        { status: 400 }
-      );
-    }
-
-    // Get client IP and user agent for anonymous tracking
+    // Get client IP and user agent for tracking
     const clientIP = request.headers.get('x-forwarded-for') || 
                     request.headers.get('x-real-ip') || 
                     '127.0.0.1';
     const userAgent = request.headers.get('user-agent') || '';
 
-    // Use the cast_vote function for safe voting
-    const { data: voteResult, error: voteError } = await supabase
-      .rpc('cast_vote', {
-        poll_uuid: pollId,
-        option_uuid: optionId,
-        voter_ip_addr: clientIP,
-        voter_user_agent: userAgent
-      });
-
-    if (voteError) {
-      console.error('Error calling cast_vote function:', voteError);
-      
-      // Fallback to direct database operations if function fails
-      try {
-        // Check if poll exists and is active
-        const { data: poll, error: pollError } = await supabase
-          .from('polls')
-          .select('id, is_active, expires_at, allow_multiple_votes')
-          .eq('id', pollId)
-          .single();
-
-        if (pollError || !poll) {
-          return NextResponse.json(
-            { error: 'Poll not found' },
-            { status: 404 }
-          );
-        }
-
-        if (!poll.is_active) {
-          return NextResponse.json(
-            { error: 'Poll is not active' },
-            { status: 400 }
-          );
-        }
-
-        if (poll.expires_at && new Date(poll.expires_at) <= new Date()) {
-          return NextResponse.json(
-            { error: 'Poll has expired' },
-            { status: 400 }
-          );
-        }
-
-        // Check if option belongs to this poll
-        const { data: option, error: optionError } = await supabase
-          .from('poll_options')
-          .select('id')
-          .eq('id', optionId)
-          .eq('poll_id', pollId)
-          .single();
-
-        if (optionError || !option) {
-          return NextResponse.json(
-            { error: 'Invalid option for this poll' },
-            { status: 400 }
-          );
-        }
-
-        // Check for existing vote
-        const { data: existingVote, error: existingVoteError } = await supabase
-          .from('votes')
-          .select('id')
-          .eq('poll_id', pollId)
-          .eq('user_id', user.id)
-          .single();
-
-        if (existingVote && !poll.allow_multiple_votes) {
-          // Update existing vote
-          const { error: updateError } = await supabase
-            .from('votes')
-            .update({
-              option_id: optionId,
-              created_at: new Date().toISOString()
-            })
-            .eq('id', existingVote.id);
-
-          if (updateError) {
-            throw updateError;
-          }
-
-          return NextResponse.json({
-            success: true,
-            message: 'Vote updated successfully',
-            vote_id: existingVote.id
-          });
-        } else {
-          // Create new vote
-          const { data: newVote, error: insertError } = await supabase
-            .from('votes')
-            .insert({
-              poll_id: pollId,
-              option_id: optionId,
-              user_id: user.id,
-              voter_ip: clientIP,
-              user_agent: userAgent
-            })
-            .select('id')
-            .single();
-
-          if (insertError) {
-            throw insertError;
-          }
-
-          return NextResponse.json({
-            success: true,
-            message: 'Vote cast successfully',
-            vote_id: newVote.id
-          });
-        }
-      } catch (fallbackError) {
-        console.error('Fallback voting error:', fallbackError);
-        return NextResponse.json(
-          { error: 'Failed to cast vote' },
-          { status: 500 }
-        );
-      }
+    // Mock poll validation (simplified)
+    const validPollIds = ['1', '2', '3'];
+    if (!validPollIds.includes(pollId)) {
+      return NextResponse.json(
+        { error: 'Poll not found' },
+        { status: 404 }
+      );
     }
 
-    // Handle function result
-    if (voteResult && typeof voteResult === 'object') {
-      if (voteResult.success === false) {
-        return NextResponse.json(
-          { error: voteResult.error || 'Failed to cast vote' },
-          { status: 400 }
-        );
-      }
+    // Mock option validation
+    const validOptions: Record<string, string[]> = {
+      '1': ['1', '2', '3'],
+      '2': ['4', '5'],
+      '3': ['6', '7', '8']
+    };
+    
+    if (!validOptions[pollId]?.includes(optionId)) {
+      return NextResponse.json(
+        { error: 'Invalid option for this poll' },
+        { status: 400 }
+      );
+    }
+
+    // Check for existing vote
+    const existingVoteIndex = mockVotes.findIndex(
+      vote => vote.poll_id === pollId && vote.user_id === mockUserId
+    );
+
+    const voteId = `vote-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    if (existingVoteIndex !== -1) {
+      // Update existing vote (assuming polls allow vote changes)
+      mockVotes[existingVoteIndex] = {
+        ...mockVotes[existingVoteIndex],
+        option_id: optionId,
+        created_at: new Date().toISOString()
+      };
 
       return NextResponse.json({
         success: true,
-        message: voteResult.message || 'Vote cast successfully',
-        vote_id: voteResult.vote_id
+        message: 'Vote updated successfully',
+        vote_id: mockVotes[existingVoteIndex].id
+      });
+    } else {
+      // Create new vote
+      const newVote: MockVote = {
+        id: voteId,
+        poll_id: pollId,
+        option_id: optionId,
+        user_id: mockUserId,
+        voter_ip: clientIP,
+        user_agent: userAgent,
+        created_at: new Date().toISOString()
+      };
+
+      mockVotes.push(newVote);
+
+      return NextResponse.json({
+        success: true,
+        message: 'Vote cast successfully',
+        vote_id: voteId
       });
     }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Vote cast successfully'
-    });
   } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json(
