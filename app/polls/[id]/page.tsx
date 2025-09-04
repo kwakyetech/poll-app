@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, use, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/context/AuthContext';
 
 interface PollOption {
   id: string;
@@ -34,6 +36,8 @@ interface PollDetailPageProps {
 
 export default function PollDetailPage({ params }: PollDetailPageProps) {
   const { id } = use(params);
+  const router = useRouter();
+  const { user } = useAuth();
   const [poll, setPoll] = useState<Poll | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +47,25 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
   const [textResponses, setTextResponses] = useState<any[]>([]);
   const [hasVoted, setHasVoted] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!user) {
+      router.push(`/auth/login?redirectTo=/polls/${id}`);
+    }
+  }, [user, router, id]);
+
+  // Show loading while redirecting
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Redirecting to login...</p>
+        </div>
+      </div>
+    );
+  }
 
   const fetchTextResponses = async () => {
     if (!poll || poll.poll_type !== 'text') return;
@@ -100,6 +123,12 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
     e.preventDefault();
     
     if (!poll) {
+      return;
+    }
+
+    // Check if user is authenticated
+    if (!user) {
+      setError('You must be logged in to vote');
       return;
     }
 
