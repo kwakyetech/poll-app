@@ -27,7 +27,7 @@ let pollsStore = [
       { id: 'opt-7', text: 'Angular', votes: 12 },
       { id: 'opt-8', text: 'Svelte', votes: 7 }
     ],
-    created_by: 'demo-user-2',
+    created_by: 'demo-user-1',
     created_at: new Date('2024-01-16T14:30:00Z'),
     is_active: true,
     allow_multiple_votes: false
