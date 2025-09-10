@@ -1,6 +1,21 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getPolls, findPoll, mockPolls } from '@/lib/mockData';
+import { validateSession, checkRateLimit, sanitizeInput } from '@/lib/auth';
+
+// Input validation schema for poll updates
+const updatePollSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(200, 'Title too long').optional(),
+  description: z.string().max(1000, 'Description too long').optional(),
+  options: z.array(z.object({
+    id: z.string().optional(),
+    option_text: z.string().min(1).max(100)
+  })).min(2).max(10).optional(),
+  expires_at: z.string().datetime().optional().nullable(),
+  allow_multiple_votes: z.boolean().optional(),
+  is_anonymous: z.boolean().optional()
+});
 
 /**
  * PUT /api/polls/[id] - Update poll content (title, description, options)
@@ -10,86 +25,89 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Check for mock authentication session
+    // Rate limiting
+    const clientIP = request.headers.get('x-forwarded-for') || 'unknown';
+    if (!checkRateLimit(clientIP, 'update-poll', 10, 300)) { // 10 updates per 5 minutes
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
+    // Check for secure authentication session
     const cookieStore = await cookies();
-    const mockSession = cookieStore.get('mock-auth-session');
+    const sessionToken = cookieStore.get('session-token');
     
-    if (!mockSession) {
+    if (!sessionToken) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    let sessionData;
-    try {
-      if (!mockSession.value || mockSession.value.trim() === '') {
-        return NextResponse.json(
-          { error: 'Empty session' },
-          { status: 401 }
-        );
-      }
-      sessionData = JSON.parse(mockSession.value);
-      // Check if session is expired
-      if (sessionData.expires_at <= Math.floor(Date.now() / 1000)) {
-        return NextResponse.json(
-          { error: 'Session expired' },
-          { status: 401 }
-        );
-      }
-    } catch (error) {
-      console.error('Session parsing error:', error, 'Cookie value:', mockSession.value);
+    const session = validateSession(sessionToken.value);
+    if (!session) {
       return NextResponse.json(
-        { error: 'Invalid session' },
+        { error: 'Invalid or expired session' },
         { status: 401 }
       );
     }
 
     const { id } = await params;
-     const body = await request.json();
-     const { title, description, options, expires_at, allow_multiple_votes, is_anonymous } = body;
+    const body = await request.json();
+    
+    // Validate input using Zod schema
+    const validationResult = updatePollSchema.safeParse(body);
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: 'Invalid input', details: validationResult.error.errors },
+        { status: 400 }
+      );
+    }
+
+    const { title, description, options, expires_at, allow_multiple_votes, is_anonymous } = validationResult.data;
  
-     // Find the poll
-     const polls = getPolls();
-     const pollIndex = polls.findIndex(p => p.id === id);
-     
-     if (pollIndex === -1) {
-       return NextResponse.json(
-         { error: 'Poll not found' },
-         { status: 404 }
-       );
-     }
+    // Find the poll
+    const polls = getPolls();
+    const pollIndex = polls.findIndex(p => p.id === id);
+    
+    if (pollIndex === -1) {
+      return NextResponse.json(
+        { error: 'Poll not found' },
+        { status: 404 }
+      );
+    }
  
-     const poll = polls[pollIndex];
+    const poll = polls[pollIndex];
  
-     // Check if user is the creator
-     if (poll.created_by !== sessionData.user.id) {
-       return NextResponse.json(
-         { error: 'Unauthorized - You can only update your own polls' },
-         { status: 403 }
-       );
-     }
+    // Check if user is the creator
+    if (poll.created_by !== session.userId) {
+      return NextResponse.json(
+        { error: 'Unauthorized - You can only update your own polls' },
+        { status: 403 }
+      );
+    }
  
-     // Update poll fields
-     if (title) polls[pollIndex].title = title;
-     if (description !== undefined) polls[pollIndex].description = description;
-     if (expires_at !== undefined) polls[pollIndex].expires_at = expires_at;
-     if (typeof allow_multiple_votes === 'boolean') polls[pollIndex].allow_multiple_votes = allow_multiple_votes;
-     if (typeof is_anonymous === 'boolean') polls[pollIndex].is_anonymous = is_anonymous;
-     
-     if (options && Array.isArray(options)) {
-       // Preserve existing vote counts when updating options
-       const existingOptions = polls[pollIndex].options || [];
-       polls[pollIndex].options = options.map((option, index) => {
-         const existingOption = existingOptions.find(opt => opt.id === option.id);
-         return {
-           id: option.id || `${id}-option-${index}`,
-           text: option.option_text,
-           votes: existingOption ? existingOption.votes : 0
-         };
-       });
-       polls[pollIndex].option_count = options.length;
-     }
+    // Update poll fields with sanitized data
+    if (title) polls[pollIndex].title = sanitizeInput(title);
+    if (description !== undefined) polls[pollIndex].description = sanitizeInput(description);
+    if (expires_at !== undefined) polls[pollIndex].expires_at = expires_at;
+    if (typeof allow_multiple_votes === 'boolean') polls[pollIndex].allow_multiple_votes = allow_multiple_votes;
+    if (typeof is_anonymous === 'boolean') polls[pollIndex].is_anonymous = is_anonymous;
+    
+    if (options && Array.isArray(options)) {
+      // Preserve existing vote counts when updating options
+      const existingOptions = polls[pollIndex].options || [];
+      polls[pollIndex].options = options.map((option, index) => {
+        const existingOption = existingOptions.find(opt => opt.id === option.id);
+        return {
+          id: option.id || `${id}-option-${index}`,
+          text: sanitizeInput(option.option_text),
+          votes: existingOption ? existingOption.votes : 0
+        };
+      });
+      polls[pollIndex].option_count = options.length;
+    }
  
      polls[pollIndex].updated_at = new Date().toISOString();
 

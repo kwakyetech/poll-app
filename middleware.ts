@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 
 /**
  * Middleware for handling authentication and route protection
- * Now works with mock authentication system
+ * Works with secure authentication system
  */
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -32,21 +32,14 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith(route)
   );
 
-  // Check for mock authentication session in cookies
-  const mockSession = req.cookies.get('mock-auth-session');
+  // Check for secure authentication session in cookies
+  const sessionToken = req.cookies.get('poll_session');
   let isAuthenticated = false;
 
-  if (mockSession) {
-    try {
-      const sessionData = JSON.parse(mockSession.value);
-      // Check if session is not expired
-      if (sessionData.expires_at > Math.floor(Date.now() / 1000)) {
-        isAuthenticated = true;
-      }
-    } catch (error) {
-      // Invalid session data, treat as unauthenticated
-      console.warn('Invalid session data in middleware:', error);
-    }
+  if (sessionToken) {
+    // For middleware, we'll do a simple token existence check
+    // The actual session validation will happen in API routes
+    isAuthenticated = sessionToken.value.length > 0;
   }
 
   // Redirect unauthenticated users away from protected routes

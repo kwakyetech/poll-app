@@ -1,6 +1,8 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getPolls, addPoll } from '@/lib/mockData';
+import { validateSession, checkRateLimit, sanitizeInput } from '@/lib/auth';
 
 /**
  * GET /api/polls - Fetch all polls or user-specific polls
@@ -43,83 +45,83 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// Input validation schema
+const createPollSchema = z.object({
+  title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
+  description: z.string().max(1000, 'Description too long').optional(),
+  pollType: z.enum(['single', 'multiple', 'text'], { required_error: 'Invalid poll type' }),
+  options: z.array(z.string().min(1).max(100)).min(2, 'At least 2 options required').max(10, 'Too many options').optional(),
+  expiresAt: z.string().datetime().optional().nullable(),
+  allowMultipleVotes: z.boolean().optional(),
+  isAnonymous: z.boolean().optional()
+}).refine((data) => {
+  if (data.pollType !== 'text' && (!data.options || data.options.length < 2)) {
+    return false;
+  }
+  return true;
+}, {
+  message: 'Choice-based polls require at least 2 options',
+  path: ['options']
+});
+
 /**
  * POST /api/polls - Create a new poll
  */
 export async function POST(request: NextRequest) {
   try {
-    // Check for mock authentication session
+    // Rate limiting
+    const clientIP = request.headers.get('x-forwarded-for') || 'unknown';
+    if (!checkRateLimit(clientIP, 'create-poll', 5, 300)) { // 5 polls per 5 minutes
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please try again later.' },
+        { status: 429 }
+      );
+    }
+
+    // Check for secure authentication session
     const cookieStore = await cookies();
-    const mockSession = cookieStore.get('mock-auth-session');
+    const sessionToken = cookieStore.get('session-token');
     
-    if (!mockSession) {
+    if (!sessionToken) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    let sessionData;
-    try {
-      if (!mockSession.value || mockSession.value.trim() === '') {
-        return NextResponse.json(
-          { error: 'Empty session' },
-          { status: 401 }
-        );
-      }
-      sessionData = JSON.parse(mockSession.value);
-      // Check if session is expired
-      if (sessionData.expires_at <= Math.floor(Date.now() / 1000)) {
-        return NextResponse.json(
-          { error: 'Session expired' },
-          { status: 401 }
-        );
-      }
-    } catch (error) {
-      console.error('Session parsing error:', error, 'Cookie value:', mockSession.value);
+    const session = validateSession(sessionToken.value);
+    if (!session) {
       return NextResponse.json(
-        { error: 'Invalid session' },
+        { error: 'Invalid or expired session' },
         { status: 401 }
       );
     }
 
     const body = await request.json();
-    const { title, description, pollType, options, expiresAt, allowMultipleVotes, isAnonymous } = body;
     
-    // Debug logging
-    console.log('Creating poll with data:', {
-      title,
-      pollType,
-      allowMultipleVotes,
-      optionsCount: options?.length || 0
-    });
-
-    // Validate required fields
-    if (!title) {
+    // Validate input using Zod schema
+    const validationResult = createPollSchema.safeParse(body);
+    if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Title is required' },
+        { error: 'Invalid input', details: validationResult.error.errors },
         { status: 400 }
       );
     }
 
-    // Validate options for non-text polls
-    if (pollType !== 'text' && (!options || options.length < 2)) {
-      return NextResponse.json(
-        { error: 'At least 2 options are required for choice-based polls' },
-        { status: 400 }
-      );
-    }
-
-    // Create new poll
-    const determinedPollType = pollType; // Keep the original pollType as frontend expects 'single', 'multiple', or 'text'
-    console.log('Poll type mapping:', { received: pollType, determined: determinedPollType });
+    const { title, description, pollType, options, expiresAt, allowMultipleVotes, isAnonymous } = validationResult.data;
     
+    // Sanitize text inputs
+    const sanitizedTitle = sanitizeInput(title);
+    const sanitizedDescription = description ? sanitizeInput(description) : '';
+    const sanitizedOptions = options ? options.map(option => sanitizeInput(option)) : [];
+
+    // Create new poll with sanitized data
     const newPoll = {
       id: `poll-${getPolls().length + 1}`,
-      title,
-      description: description || '',
-      poll_type: determinedPollType,
-      created_by: sessionData.user.id,
+      title: sanitizedTitle,
+      description: sanitizedDescription,
+      poll_type: pollType,
+      created_by: session.userId,
       created_at: new Date().toISOString(),
       expires_at: expiresAt || null,
       allow_multiple_votes: allowMultipleVotes || false,
@@ -129,8 +131,8 @@ export async function POST(request: NextRequest) {
     };
 
     // Create poll options (only for non-text polls)
-    if (pollType !== 'text' && options && options.length > 0) {
-      newPoll.options = options.map((option: string, index: number) => ({
+    if (pollType !== 'text' && sanitizedOptions && sanitizedOptions.length > 0) {
+      newPoll.options = sanitizedOptions.map((option: string, index: number) => ({
         id: `${newPoll.id}-option-${index + 1}`,
         poll_id: newPoll.id,
         text: option,
@@ -141,13 +143,6 @@ export async function POST(request: NextRequest) {
 
     // Add to mock database
     addPoll(newPoll);
-    
-    console.log('Created new poll:', {
-      id: newPoll.id,
-      title: newPoll.title,
-      poll_type: newPoll.poll_type,
-      options: newPoll.options.map(opt => ({ id: opt.id, text: opt.text, votes: opt.votes }))
-    });
 
     return NextResponse.json(
       { data: newPoll, message: 'Poll created successfully' },
