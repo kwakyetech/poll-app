@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 const formSchema = z.object({
   username: z.string().min(3, {
@@ -24,19 +25,6 @@ const formSchema = z.object({
   }).regex(/^[a-zA-Z0-9_]+$/, {
     message: 'Username can only contain letters, numbers, and underscores.',
   }),
-  firstname: z.string().min(1, {
-    message: 'First name is required.',
-  }).max(100, {
-    message: 'First name must be less than 100 characters.',
-  }),
-  lastname: z.string().min(1, {
-    message: 'Last name is required.',
-  }).max(100, {
-    message: 'Last name must be less than 100 characters.',
-  }),
-  middlename: z.string().max(100, {
-    message: 'Middle name must be less than 100 characters.',
-  }).optional(),
   email: z.string().email({
     message: 'Please enter a valid email address.',
   }),
@@ -54,15 +42,14 @@ const formSchema = z.object({
 export default function RegisterForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const { signUp } = useAuth();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       username: '',
-      firstname: '',
-      lastname: '',
-      middlename: '',
       email: '',
       password: '',
       confirmPassword: '',
@@ -71,23 +58,27 @@ export default function RegisterForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
+    setError(null);
 
     try {
-      // Mock registration - simulate successful account creation
-      console.log('Mock registration successful for:', values.username, values.email);
+      const success = await signUp({
+        username: values.username,
+        email: values.email,
+        password: values.password,
+      });
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      setIsSuccess(true);
-      
-      // Redirect to login after success
-      setTimeout(() => {
-        router.push('/auth/login');
-      }, 2000);
+      if (success) {
+        setIsSuccess(true);
+        // Redirect to dashboard after successful registration and auto-login
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 2000);
+      } else {
+        setError('Registration failed. Username or email may already exist.');
+      }
     } catch (error) {
       console.error('Registration error:', error);
-      alert('An error occurred during registration. Please try again.');
+      setError('An error occurred during registration. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -104,7 +95,7 @@ export default function RegisterForm() {
           </div>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-green-600">Account Created!</h2>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Your account has been created successfully. Redirecting to login...
+            Your account has been created successfully. Redirecting to dashboard...
           </p>
         </div>
       </div>
@@ -120,11 +111,13 @@ export default function RegisterForm() {
         </p>
       </div>
 
-      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-        <p className="text-xs sm:text-sm text-blue-800">
-          ℹ️ Running in demo mode. Account creation is simulated.
-        </p>
-      </div>
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+          <p className="text-xs sm:text-sm text-red-800">
+            ❌ {error}
+          </p>
+        </div>
+      )}
       
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">
@@ -146,62 +139,6 @@ export default function RegisterForm() {
               </FormItem>
             )}
           />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            <FormField
-              control={form.control}
-              name="firstname"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm sm:text-base">First Name</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Enter your first name"
-                      type="text"
-                      className="h-10 sm:h-11 text-sm sm:text-base"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage className="text-xs sm:text-sm" />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="lastname"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-sm sm:text-base">Last Name</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Enter your last name"
-                      type="text"
-                      className="h-10 sm:h-11 text-sm sm:text-base"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage className="text-xs sm:text-sm" />
-                </FormItem>
-              )}
-            />
-          </div>
-          <FormField
-            control={form.control}
-            name="middlename"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-sm sm:text-base">Middle Name (Optional)</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Enter your middle name"
-                    type="text"
-                    className="h-10 sm:h-11 text-sm sm:text-base"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage className="text-xs sm:text-sm" />
-              </FormItem>
-            )}
-          />
           <FormField
             control={form.control}
             name="email"
@@ -212,14 +149,15 @@ export default function RegisterForm() {
                   <Input
                     placeholder="Enter your email"
                     type="email"
-                    className="h-10 sm:h-11 text-sm sm:text-base"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage className="text-xs sm:text-sm" />
-              </FormItem>
-            )}
-          />
+                      className="h-10 sm:h-11 text-sm sm:text-base"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage className="text-xs sm:text-sm" />
+                </FormItem>
+              )}
+            />
+
           <FormField
             control={form.control}
             name="password"

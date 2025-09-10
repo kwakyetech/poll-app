@@ -77,11 +77,18 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user) {
       setAuthLoading(false);
-    } else if (!authLoading && !loading) {
-      // Only redirect if we're not loading and there's no user
+    }
+  }, [user]);
+
+  // Handle authentication state from AuthContext
+  const { loading: authContextLoading } = useAuth();
+  
+  useEffect(() => {
+    // If auth context is done loading and there's no user, redirect to login
+    if (!authContextLoading && !user) {
       router.push('/auth/login');
     }
-  }, [user, authLoading, loading, router]);
+  }, [authContextLoading, user, router]);
 
   useEffect(() => {
     if (user) {
@@ -192,7 +199,7 @@ export default function DashboardPage() {
   const { statusData, votesData, monthlyData } = getChartData();
   const COLORS = ['#10B981', '#6B7280', '#EF4444'];
 
-  if (authLoading || !user) {
+  if (authContextLoading || !user) {
     return (
       <div className="min-h-screen bg-gray-50 py-6 sm:py-12">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
