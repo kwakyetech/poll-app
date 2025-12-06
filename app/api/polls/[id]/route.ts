@@ -36,7 +36,7 @@ export async function PUT(
 
     // Check for secure authentication session
     const cookieStore = await cookies();
-    const sessionToken = cookieStore.get('session-token');
+    const sessionToken = cookieStore.get('poll_session');
     
     if (!sessionToken) {
       return NextResponse.json(
@@ -45,8 +45,8 @@ export async function PUT(
       );
     }
 
-    const session = validateSession(sessionToken.value);
-    if (!session) {
+    const userId = validateSession(sessionToken.value);
+    if (!userId) {
       return NextResponse.json(
         { error: 'Invalid or expired session' },
         { status: 401 }
@@ -81,7 +81,7 @@ export async function PUT(
     const poll = polls[pollIndex];
  
     // Check if user is the creator
-    if (poll.created_by !== session.userId) {
+    if (poll.created_by !== userId) {
       return NextResponse.json(
         { error: 'Unauthorized - You can only update your own polls' },
         { status: 403 }
@@ -181,37 +181,21 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Check for mock authentication session
+    // Check for secure authentication session
     const cookieStore = await cookies();
-    const mockSession = cookieStore.get('mock-auth-session');
+    const sessionToken = cookieStore.get('poll_session');
     
-    if (!mockSession) {
+    if (!sessionToken) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    let sessionData;
-    try {
-      if (!mockSession.value || mockSession.value.trim() === '') {
-        return NextResponse.json(
-          { error: 'Empty session' },
-          { status: 401 }
-        );
-      }
-      sessionData = JSON.parse(mockSession.value);
-      // Check if session is expired
-      if (sessionData.expires_at <= Math.floor(Date.now() / 1000)) {
-        return NextResponse.json(
-          { error: 'Session expired' },
-          { status: 401 }
-        );
-      }
-    } catch (error) {
-      console.error('Session parsing error:', error, 'Cookie value:', mockSession.value);
+    const userId = validateSession(sessionToken.value);
+    if (!userId) {
       return NextResponse.json(
-        { error: 'Invalid session' },
+        { error: 'Invalid or expired session' },
         { status: 401 }
       );
     }
@@ -234,7 +218,7 @@ export async function PATCH(
     const poll = polls[pollIndex];
 
     // Check if user is the creator
-    if (poll.created_by !== sessionData.user.id) {
+    if (poll.created_by !== userId) {
       return NextResponse.json(
         { error: 'Unauthorized - You can only update your own polls' },
         { status: 403 }
@@ -270,37 +254,21 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Check for mock authentication session
+    // Check for secure authentication session
     const cookieStore = await cookies();
-    const mockSession = cookieStore.get('mock-auth-session');
+    const sessionToken = cookieStore.get('poll_session');
     
-    if (!mockSession) {
+    if (!sessionToken) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    let sessionData;
-    try {
-      if (!mockSession.value || mockSession.value.trim() === '') {
-        return NextResponse.json(
-          { error: 'Empty session' },
-          { status: 401 }
-        );
-      }
-      sessionData = JSON.parse(mockSession.value);
-      // Check if session is expired
-      if (sessionData.expires_at <= Math.floor(Date.now() / 1000)) {
-        return NextResponse.json(
-          { error: 'Session expired' },
-          { status: 401 }
-        );
-      }
-    } catch (error) {
-      console.error('Session parsing error:', error, 'Cookie value:', mockSession.value);
+    const session = validateSession(sessionToken.value);
+    if (!session) {
       return NextResponse.json(
-        { error: 'Invalid session' },
+        { error: 'Invalid or expired session' },
         { status: 401 }
       );
     }
@@ -321,7 +289,7 @@ export async function DELETE(
     const poll = polls[pollIndex];
 
     // Check if user is the creator
-    if (poll.created_by !== sessionData.user.id) {
+    if (poll.created_by !== userId) {
       return NextResponse.json(
         { error: 'Unauthorized - You can only delete your own polls' },
         { status: 403 }

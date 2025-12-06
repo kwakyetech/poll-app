@@ -15,7 +15,7 @@ export default function CreatePollPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -52,7 +52,7 @@ export default function CreatePollPage() {
   };
 
   const updateOption = (id: string, text: string) => {
-    setOptions(options.map(option => 
+    setOptions(options.map(option =>
       option.id === id ? { ...option, text } : option
     ));
   };
@@ -108,11 +108,11 @@ export default function CreatePollPage() {
         description: description.trim(),
         pollType,
         options: pollType === 'text' ? [] : options.filter(option => option.text.trim()).map(option => option.text.trim()),
-        expiresAt,
+        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
         allowMultipleVotes,
         isAnonymous
       };
-      
+
       // Debug logging
       console.log('Frontend sending poll data:', {
         pollType,
@@ -126,6 +126,7 @@ export default function CreatePollPage() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(pollData),
       });
 
@@ -135,7 +136,7 @@ export default function CreatePollPage() {
       }
 
       const result = await response.json();
-      
+
       // Redirect to the created poll
       router.push(`/polls/${result.data.id}`);
     } catch (err: unknown) {
@@ -224,12 +225,11 @@ export default function CreatePollPage() {
                 Poll Type *
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div 
-                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                    pollType === 'single' 
-                      ? 'border-blue-500 bg-blue-50' 
+                <div
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${pollType === 'single'
+                      ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                    }`}
                   onClick={() => {
                     setPollType('single');
                     setAllowMultipleVotes(false);
@@ -252,12 +252,11 @@ export default function CreatePollPage() {
                   <p className="text-sm text-gray-600">Users can select only one option</p>
                 </div>
 
-                <div 
-                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                    pollType === 'multiple' 
-                      ? 'border-blue-500 bg-blue-50' 
+                <div
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${pollType === 'multiple'
+                      ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                    }`}
                   onClick={() => {
                     setPollType('multiple');
                     setAllowMultipleVotes(true);
@@ -280,12 +279,11 @@ export default function CreatePollPage() {
                   <p className="text-sm text-gray-600">Users can select multiple options</p>
                 </div>
 
-                <div 
-                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                    pollType === 'text' 
-                      ? 'border-blue-500 bg-blue-50' 
+                <div
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${pollType === 'text'
+                      ? 'border-blue-500 bg-blue-50'
                       : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                    }`}
                   onClick={() => {
                     setPollType('text');
                     setAllowMultipleVotes(false);
@@ -316,36 +314,36 @@ export default function CreatePollPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Poll Options * (minimum 2)
                 </label>
-              <div className="space-y-2 sm:space-y-3">
-                {options.map((option, index) => (
-                  <div key={option.id} className="flex items-center space-x-2">
-                    <div className="flex-1">
-                      <input
-                        type="text"
-                        value={option.text}
-                        onChange={(e) => updateOption(option.id, e.target.value)}
-                        className="w-full px-3 py-3 sm:py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base sm:text-sm"
-                        placeholder={`Option ${index + 1}`}
-                        maxLength={100}
-                      />
+                <div className="space-y-2 sm:space-y-3">
+                  {options.map((option, index) => (
+                    <div key={option.id} className="flex items-center space-x-2">
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          value={option.text}
+                          onChange={(e) => updateOption(option.id, e.target.value)}
+                          className="w-full px-3 py-3 sm:py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-base sm:text-sm"
+                          placeholder={`Option ${index + 1}`}
+                          maxLength={100}
+                        />
+                      </div>
+                      {options.length > 2 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeOption(option.id)}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0 h-12 w-12 sm:h-8 sm:w-8 p-0"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </Button>
+                      )}
                     </div>
-                    {options.length > 2 && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeOption(option.id)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 flex-shrink-0 h-12 w-12 sm:h-8 sm:w-8 p-0"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              
+                  ))}
+                </div>
+
                 {options.length < 10 && (
                   <Button
                     type="button"
@@ -399,7 +397,7 @@ export default function CreatePollPage() {
             {/* Poll Settings */}
             <div className="space-y-3 sm:space-y-4">
               <h3 className="text-base sm:text-lg font-medium text-gray-900">Poll Settings</h3>
-              
+
               {/* Show info for single choice polls */}
               {pollType === 'single' && (
                 <div className="p-3 sm:p-2 border border-gray-200 bg-gray-50 rounded-lg">
@@ -408,7 +406,7 @@ export default function CreatePollPage() {
                   </p>
                 </div>
               )}
-              
+
               {/* Show info for multiple choice and text polls */}
               {pollType === 'multiple' && (
                 <div className="p-3 sm:p-2 border border-blue-200 bg-blue-50 rounded-lg">
@@ -417,7 +415,7 @@ export default function CreatePollPage() {
                   </p>
                 </div>
               )}
-              
+
               {pollType === 'text' && (
                 <div className="p-3 sm:p-2 border border-green-200 bg-green-50 rounded-lg">
                   <p className="text-sm text-green-800">

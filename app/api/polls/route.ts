@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
 
     // Check for secure authentication session
     const cookieStore = await cookies();
-    const sessionToken = cookieStore.get('session-token');
+    const sessionToken = cookieStore.get('poll_session');
     
     if (!sessionToken) {
       return NextResponse.json(
@@ -89,8 +89,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const session = validateSession(sessionToken.value);
-    if (!session) {
+    const userId = validateSession(sessionToken.value);
+    if (!userId) {
       return NextResponse.json(
         { error: 'Invalid or expired session' },
         { status: 401 }
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
       title: sanitizedTitle,
       description: sanitizedDescription,
       poll_type: pollType,
-      created_by: session.userId,
+      created_by: userId,
       created_at: new Date().toISOString(),
       expires_at: expiresAt || null,
       allow_multiple_votes: allowMultipleVotes || false,

@@ -8,7 +8,15 @@ const SESSION_COOKIE_NAME = 'poll_session';
 const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 // In-memory session store (replace with Redis/database in production)
-const sessions = new Map<string, { userId: string; expiresAt: number }>();
+declare global {
+  var sessionsStore: Map<string, { userId: string; expiresAt: number }>;
+}
+
+if (!global.sessionsStore) {
+  global.sessionsStore = new Map<string, { userId: string; expiresAt: number }>();
+}
+
+const sessions = global.sessionsStore;
 
 export interface SecureUser {
   id: string;
@@ -87,16 +95,25 @@ const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
 const MAX_REQUESTS = 100;
 
-export function checkRateLimit(identifier: string): boolean {
+export function checkRateLimit(
+  identifier: string, 
+  action?: string, 
+  maxRequests?: number, 
+  windowSeconds?: number
+): boolean {
   const now = Date.now();
-  const record = rateLimitStore.get(identifier);
+  const window = windowSeconds ? windowSeconds * 1000 : RATE_LIMIT_WINDOW;
+  const maxReqs = maxRequests || MAX_REQUESTS;
+  const key = action ? `${identifier}:${action}` : identifier;
+  
+  const record = rateLimitStore.get(key);
   
   if (!record || now > record.resetTime) {
-    rateLimitStore.set(identifier, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    rateLimitStore.set(key, { count: 1, resetTime: now + window });
     return true;
   }
   
-  if (record.count >= MAX_REQUESTS) {
+  if (record.count >= maxReqs) {
     return false;
   }
   

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { findPoll } from '@/lib/mockData';
+import { validateSession } from '@/lib/auth';
 
 // Mock data store for text responses
 interface MockTextResponse {
@@ -21,35 +22,24 @@ export async function POST(
 ) {
   try {
     const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('mock-auth-session');
+    const sessionToken = cookieStore.get('poll_session');
     
-    // Mock authentication check
-    if (!sessionCookie) {
+    if (!sessionToken) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    // Parse and validate session
-    let sessionData;
-    try {
-      sessionData = JSON.parse(sessionCookie.value);
-      // Check if session is expired
-      if (sessionData.expires_at <= Math.floor(Date.now() / 1000)) {
-        return NextResponse.json(
-          { error: 'Session expired' },
-          { status: 401 }
-        );
-      }
-    } catch (error) {
+    const userId = validateSession(sessionToken.value);
+    if (!userId) {
       return NextResponse.json(
-        { error: 'Invalid session' },
+        { error: 'Invalid or expired session' },
         { status: 401 }
       );
     }
 
-    const mockUserId = sessionData.user.id;
+    const mockUserId = userId;
     const { id: pollId } = await params;
 
     const { responseText } = await request.json();
