@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line, Area, AreaChart } from 'recharts';
+import { getUserPolls, deletePoll as deletePollFirestore, updatePollStatus } from '@/lib/firestore';
 
 interface PollOption {
   id: string;
@@ -33,7 +34,7 @@ interface Poll {
 export default function DashboardPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [polls, setPolls] = useState<PollWithCountsExtended[]>([]);
+  const [polls, setPolls] = useState<Poll[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [deletingPollId, setDeletingPollId] = useState<string | null>(null);
@@ -46,22 +47,16 @@ export default function DashboardPage() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/polls?userId=${user.id}`, {
-        credentials: 'include'
-      });
+      const data = await getUserPolls(user.uid);
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch polls');
-      }
-
-      const response_data = await response.json();
-      const data = response_data.data || [];
-      
       // Transform the data to match dashboard requirements
       const pollsWithCounts = data.map((poll: any) => ({
         ...poll,
         option_count: poll.options?.length || 0,
-        vote_count: poll.total_votes || 0 // Use total_votes from API instead of calculating
+        vote_count: poll.totalVotes || 0,
+        created_at: poll.createdAt?.toDate?.().toISOString() || new Date().toISOString(),
+        expires_at: poll.expiresAt,
+        is_active: poll.isActive !== undefined ? poll.isActive : true
       }));
 
       setPolls(pollsWithCounts);
@@ -82,7 +77,7 @@ export default function DashboardPage() {
 
   // Handle authentication state from AuthContext
   const { loading: authContextLoading } = useAuth();
-  
+
   useEffect(() => {
     // If auth context is done loading and there's no user, redirect to login
     if (!authContextLoading && !user) {
@@ -104,14 +99,7 @@ export default function DashboardPage() {
     try {
       setDeletingPollId(pollId);
 
-      const response = await fetch(`/api/polls/${pollId}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete poll');
-      }
+      await deletePollFirestore(pollId);
 
       // Remove from local state
       setPolls(polls.filter(poll => poll.id !== pollId));
@@ -126,22 +114,11 @@ export default function DashboardPage() {
 
   const togglePollStatus = async (pollId: string, currentStatus: boolean) => {
     try {
-      const response = await fetch(`/api/polls/${pollId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify({ is_active: !currentStatus })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update poll status');
-      }
+      await updatePollStatus(pollId, !currentStatus);
 
       // Update local state
-      setPolls(polls.map(poll => 
-        poll.id === pollId 
+      setPolls(polls.map(poll =>
+        poll.id === pollId
           ? { ...poll, is_active: !currentStatus }
           : poll
       ));
@@ -391,18 +368,18 @@ export default function DashboardPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={votesData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis 
-                      dataKey="name" 
+                    <XAxis
+                      dataKey="name"
                       tick={{ fontSize: 12 }}
                       angle={-45}
                       textAnchor="end"
                       height={60}
                     />
                     <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#fff', 
-                        border: '1px solid #e5e7eb', 
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#fff',
+                        border: '1px solid #e5e7eb',
                         borderRadius: '8px',
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                       }}
@@ -428,21 +405,21 @@ export default function DashboardPage() {
                   <AreaChart data={monthlyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <defs>
                       <linearGradient id="colorPolls" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0.1}/>
+                        <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0.1} />
                       </linearGradient>
                       <linearGradient id="colorVotes" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#10B981" stopOpacity={0.1}/>
+                        <stop offset="5%" stopColor="#10B981" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#10B981" stopOpacity={0.1} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                     <YAxis tick={{ fontSize: 12 }} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#fff', 
-                        border: '1px solid #e5e7eb', 
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: '#fff',
+                        border: '1px solid #e5e7eb',
                         borderRadius: '8px',
                         boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                       }}
@@ -491,7 +468,7 @@ export default function DashboardPage() {
               {polls.map((poll) => {
                 const expired = isExpired(poll.expires_at);
                 const isDeleting = deletingPollId === poll.id;
-                
+
                 return (
                   <div key={poll.id} className="p-4 sm:p-6 hover:bg-gray-50">
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
@@ -503,13 +480,12 @@ export default function DashboardPage() {
                             </h3>
                           </Link>
                           <div className="flex flex-wrap gap-2">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                              expired 
-                                ? 'bg-red-100 text-red-800'
-                                : poll.is_active
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${expired
+                              ? 'bg-red-100 text-red-800'
+                              : poll.is_active
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-gray-100 text-gray-800'
-                            }`}>
+                              }`}>
                               {expired ? 'Expired' : poll.is_active ? 'Active' : 'Inactive'}
                             </span>
                             {poll.is_anonymous && (
@@ -524,11 +500,11 @@ export default function DashboardPage() {
                             )}
                           </div>
                         </div>
-                        
+
                         <p className="text-gray-600 text-sm mb-3 line-clamp-2">
                           {poll.description}
                         </p>
-                        
+
                         <div className="grid grid-cols-2 sm:flex sm:items-center sm:space-x-6 gap-2 sm:gap-0 text-xs sm:text-sm text-gray-500">
                           <span className="flex items-center">
                             <svg className="w-3 h-3 sm:w-4 sm:h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -546,7 +522,7 @@ export default function DashboardPage() {
                           <span className="col-span-2 sm:col-span-1">Expires: {poll.expires_at ? formatDate(poll.expires_at) : 'No expiration'}</span>
                         </div>
                       </div>
-                      
+
                       <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-2 lg:ml-4">
                         <Link href={`/polls/${poll.id}`} className="w-full sm:w-auto">
                           <Button variant="outline" size="sm" className="w-full sm:w-auto">
@@ -557,7 +533,7 @@ export default function DashboardPage() {
                             <span className="text-xs sm:text-sm">View</span>
                           </Button>
                         </Link>
-                        
+
                         <Link href={`/polls/${poll.id}/edit`} className="w-full sm:w-auto">
                           <Button variant="outline" size="sm" className="w-full sm:w-auto text-blue-600 hover:text-blue-700 hover:bg-blue-50">
                             <svg className="w-3 h-3 sm:w-4 sm:h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -566,18 +542,18 @@ export default function DashboardPage() {
                             <span className="text-xs sm:text-sm">Edit</span>
                           </Button>
                         </Link>
-                        
+
                         {!expired && (
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => togglePollStatus(poll.id, poll.is_active)}
+                            onClick={() => togglePollStatus(poll.id, !!poll.is_active)}
                             className={`w-full sm:w-auto ${poll.is_active ? 'text-red-600 hover:text-red-700' : 'text-green-600 hover:text-green-700'}`}
                           >
                             <span className="text-xs sm:text-sm">{poll.is_active ? 'Deactivate' : 'Activate'}</span>
                           </Button>
                         )}
-                        
+
                         <Button
                           variant="outline"
                           size="sm"

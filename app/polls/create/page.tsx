@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
+import { createPoll } from '@/lib/firestore';
 
 interface PollOption {
   id: string;
@@ -107,38 +108,17 @@ export default function CreatePollPage() {
         title: title.trim(),
         description: description.trim(),
         pollType,
-        options: pollType === 'text' ? [] : options.filter(option => option.text.trim()).map(option => option.text.trim()),
-        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+        options: pollType === 'text' ? [] : options.filter(option => option.text.trim()),
+        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : new Date().toISOString(),
         allowMultipleVotes,
         isAnonymous
       };
 
-      // Debug logging
-      console.log('Frontend sending poll data:', {
-        pollType,
-        allowMultipleVotes,
-        title: title.trim()
-      });
-
-      // Create poll via API
-      const response = await fetch('/api/polls', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(pollData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create poll');
-      }
-
-      const result = await response.json();
+      // Create poll via Firestore
+      const pollId = await createPoll(pollData, user.uid);
 
       // Redirect to the created poll
-      router.push(`/polls/${result.data.id}`);
+      router.push(`/polls/${pollId}`);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create poll';
       console.error('Error creating poll:', err);
@@ -227,8 +207,8 @@ export default function CreatePollPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div
                   className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${pollType === 'single'
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
                     }`}
                   onClick={() => {
                     setPollType('single');
@@ -254,8 +234,8 @@ export default function CreatePollPage() {
 
                 <div
                   className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${pollType === 'multiple'
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
                     }`}
                   onClick={() => {
                     setPollType('multiple');
@@ -281,8 +261,8 @@ export default function CreatePollPage() {
 
                 <div
                   className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${pollType === 'text'
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-blue-500 bg-blue-50'
+                    : 'border-gray-200 hover:border-gray-300'
                     }`}
                   onClick={() => {
                     setPollType('text');

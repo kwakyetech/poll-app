@@ -4,6 +4,7 @@ import { useState, use, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
+import { getPoll, votePoll, submitTextResponse, getTextResponses, getUserVotes } from '@/lib/firestore';
 
 interface PollOption {
   id: string;
@@ -69,13 +70,18 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
 
   const fetchTextResponses = async () => {
     if (!poll || poll.poll_type !== 'text') return;
-    
+
     try {
-      const response = await fetch(`/api/polls/${id}/text-response`);
-      const data = await response.json();
-      
-      if (!data.error) {
-        setTextResponses(data.data || []);
+      const data = await getTextResponses(id);
+
+      if (data) {
+        // Map Firestore data to expected format
+        const mappedResponses = data.map((resp: any) => ({
+          id: resp.id,
+          response_text: resp.responseText,
+          created_at: resp.createdAt?.toDate?.().toISOString() || new Date().toISOString()
+        }));
+        setTextResponses(mappedResponses);
       }
     } catch (err) {
       console.error('Failed to fetch text responses:', err);
@@ -87,24 +93,40 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await fetch(`/api/polls/${id}`);
-      const data = await response.json();
-      
-      if (data.error) {
-        throw new Error(data.error);
+
+      const pollData = await getPoll(id);
+
+      if (!pollData) {
+        throw new Error('Poll not found');
       }
-      
-      setPoll(data.data);
-      
+
+      // Map Firestore data to local Poll interface
+      const mappedPoll: any = {
+        ...pollData,
+        poll_type: pollData.pollType,
+        allow_multiple_votes: pollData.allowMultipleVotes,
+        options: pollData.options.map((opt: any) => ({
+          ...opt,
+          vote_count: pollData.votes?.[opt.id] || 0
+        })),
+        total_votes: pollData.totalVotes || 0,
+        is_expired: new Date(pollData.expiresAt) < new Date(),
+      };
+
+      setPoll(mappedPoll);
+
       // Check if user has already voted
-      if (data.data.user_vote) {
-        setHasVoted(true);
-        // Handle both single and multiple votes
-        if (Array.isArray(data.data.user_vote)) {
-          setSelectedOptions(data.data.user_vote.map((vote: any) => vote.option_id));
-        } else {
-          setSelectedOptions([data.data.user_vote.option_id]);
+      if (user) {
+        const userVotes = await getUserVotes(id, user.uid);
+        if (userVotes.length > 0) {
+          setHasVoted(true);
+          const votedOptionIds = userVotes.map((v: any) => v.optionId).filter(Boolean);
+          if (votedOptionIds.length > 0) {
+            setSelectedOptions(votedOptionIds);
+            // Also set user_vote on poll object if needed for UI
+            mappedPoll.user_vote = { option_id: votedOptionIds[0], voted_at: new Date().toISOString() };
+            setPoll(mappedPoll);
+          }
         }
       }
     } catch (err) {
@@ -121,7 +143,7 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!poll) {
       return;
     }
@@ -144,65 +166,29 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
     }
 
     setIsSubmitting(true);
-    
+
     try {
       if (poll.poll_type === 'text') {
         // Submit text response
-        const response = await fetch(`/api/polls/${id}/text-response`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ responseText: textResponse.trim() }),
-        });
-        
-        const data = await response.json();
-        
-        if (data.error) {
-          throw new Error(data.error);
-        }
+        await submitTextResponse(id, user.uid, textResponse.trim());
       } else {
         // For multiple votes, send each vote separately
         if (poll.allow_multiple_votes && selectedOptions.length > 1) {
           for (const optionId of selectedOptions) {
-            const response = await fetch(`/api/polls/${id}/vote`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ optionId }),
-            });
-            
-            const data = await response.json();
-            
-            if (data.error) {
-              throw new Error(data.error);
-            }
+            await votePoll(id, user.uid, optionId);
           }
         } else {
           // Single vote
-          const response = await fetch(`/api/polls/${id}/vote`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ optionId: selectedOptions[0] }),
-          });
-          
-          const data = await response.json();
-          
-          if (data.error) {
-            throw new Error(data.error);
-          }
+          await votePoll(id, user.uid, selectedOptions[0]);
         }
-        
+
         // Refresh poll data to get updated vote counts and show results
         await fetchPoll();
         setShowResults(true);
       }
-      
+
       setHasVoted(true);
-      
+
       // Fetch text responses if it's a text poll to show results
       if (poll.poll_type === 'text') {
         await fetchTextResponses();
@@ -217,8 +203,8 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
 
   const handleOptionChange = (optionId: string, allowMultiple?: boolean) => {
     if (allowMultiple) {
-      setSelectedOptions(prev => 
-        prev.includes(optionId) 
+      setSelectedOptions(prev =>
+        prev.includes(optionId)
           ? prev.filter(id => id !== optionId)
           : [...prev, optionId]
       );
@@ -293,7 +279,7 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
                   <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">
                     {poll.poll_type === 'text' ? 'Responses' : 'Results'}
                   </h2>
-                  
+
                   {poll.poll_type === 'text' ? (
                     // Text responses display
                     <div className="space-y-4">
@@ -328,10 +314,10 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
                           .sort((a, b) => (a.option_order || 0) - (b.option_order || 0))
                           .map((option) => {
                             const voteCount = option.vote_count || 0;
-                            const percentage = poll.total_votes > 0 
-                              ? Math.round((voteCount / poll.total_votes) * 100) 
+                            const percentage = poll.total_votes > 0
+                              ? Math.round((voteCount / poll.total_votes) * 100)
                               : 0;
-                            
+
                             return (
                               <div key={option.id} className="bg-gray-50 rounded-lg p-4">
                                 <div className="flex justify-between items-center mb-2">
@@ -341,8 +327,8 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
                                   </span>
                                 </div>
                                 <div className="w-full bg-gray-200 rounded-full h-2">
-                                  <div 
-                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                                  <div
+                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                                     style={{ width: `${percentage}%` }}
                                   ></div>
                                 </div>
@@ -359,7 +345,7 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
 
             {/* Vote Again Button */}
             <div className="text-center">
-              <Button 
+              <Button
                 onClick={() => {
                   setHasVoted(false);
                   setSelectedOptions([]);
@@ -439,35 +425,35 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
                     {poll.options
                       .sort((a, b) => (a.option_order || 0) - (b.option_order || 0))
                       .map((option) => (
-                      <div key={option.id} className="flex items-start sm:items-center p-3 sm:p-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                        <input
-                          id={`option-${option.id}`}
-                          name={poll.allow_multiple_votes ? undefined : "poll-option"}
-                          type={poll.allow_multiple_votes ? "checkbox" : "radio"}
-                          value={option.id}
-                          checked={selectedOptions.includes(option.id)}
-                          onChange={() => handleOptionChange(option.id, poll.allow_multiple_votes)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 mt-0.5 sm:mt-0 flex-shrink-0"
-                        />
-                        <label 
-                          htmlFor={`option-${option.id}`} 
-                          className="ml-3 block text-sm sm:text-base font-medium text-gray-700 cursor-pointer hover:text-gray-900 transition-colors leading-relaxed"
-                        >
-                          {option.text}
-                        </label>
-                      </div>
-                    ))}
+                        <div key={option.id} className="flex items-start sm:items-center p-3 sm:p-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                          <input
+                            id={`option-${option.id}`}
+                            name={poll.allow_multiple_votes ? undefined : "poll-option"}
+                            type={poll.allow_multiple_votes ? "checkbox" : "radio"}
+                            value={option.id}
+                            checked={selectedOptions.includes(option.id)}
+                            onChange={() => handleOptionChange(option.id, poll.allow_multiple_votes)}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 mt-0.5 sm:mt-0 flex-shrink-0"
+                          />
+                          <label
+                            htmlFor={`option-${option.id}`}
+                            className="ml-3 block text-sm sm:text-base font-medium text-gray-700 cursor-pointer hover:text-gray-900 transition-colors leading-relaxed"
+                          >
+                            {option.text}
+                          </label>
+                        </div>
+                      ))}
                   </div>
                 </fieldset>
               </div>
             )}
 
             <div className="pt-4 sm:pt-6 border-t border-gray-200">
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={(
-                  poll.poll_type === 'text' 
-                    ? !textResponse.trim() 
+                  poll.poll_type === 'text'
+                    ? !textResponse.trim()
                     : selectedOptions.length === 0
                 ) || isSubmitting}
                 className="w-full h-12 sm:h-10 text-base sm:text-sm"
@@ -484,7 +470,7 @@ export default function PollDetailPage({ params }: PollDetailPageProps) {
                   poll.poll_type === 'text' ? 'Submit Response' : 'Submit Vote'
                 )}
               </Button>
-              
+
               {poll.poll_type === 'text' ? (
                 !textResponse.trim() && (
                   <p className="mt-2 text-xs sm:text-sm text-gray-500 text-center">

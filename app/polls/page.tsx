@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/context/AuthContext';
 import { PollWithCountsExtended } from '@/types';
+import { getPolls } from '@/lib/firestore';
 
 export default function PollsPage() {
   const { user } = useAuth();
@@ -21,21 +22,17 @@ export default function PollsPage() {
       setLoading(true);
       setError(null);
 
-      // Fetch polls from our API endpoint
-      const response = await fetch('/api/polls');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch polls');
-      }
+      const data = await getPolls();
 
-      const response_data = await response.json();
-      const data = response_data.data || [];
-      
       // Transform the data to match expected format
       const pollsWithCounts = data.map((poll: any) => ({
         ...poll,
         option_count: poll.options?.length || 0,
-        vote_count: poll.total_votes || 0
+        vote_count: poll.totalVotes || 0,
+        created_at: poll.createdAt?.toDate?.().toISOString() || new Date().toISOString(),
+        expires_at: poll.expiresAt,
+        is_active: poll.isActive !== undefined ? poll.isActive : true,
+        is_anonymous: poll.isAnonymous
       }));
 
       setPolls(pollsWithCounts);
@@ -144,17 +141,16 @@ export default function PollsPage() {
           <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {polls.map((poll) => {
               const expired = isExpired(poll.expires_at);
-              
+
               return (
                 <Link key={poll.id} href={`/polls/${poll.id}`}>
                   <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 p-4 sm:p-6 cursor-pointer border border-gray-200 hover:border-blue-300 h-full flex flex-col">
                     {/* Poll Status */}
                     <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        expired 
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${expired
                           ? 'bg-red-100 text-red-800'
                           : 'bg-green-100 text-green-800'
-                      }`}>
+                        }`}>
                         {expired ? 'Expired' : 'Active'}
                       </span>
                       {poll.is_anonymous && (

@@ -1,158 +1,83 @@
-'use client';
+"use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-
-// Secure User type
-interface SecureUser {
-  id: string;
-  username: string;
-  email: string;
-  createdAt: string;
-}
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import {
+  onAuthStateChanged,
+  User,
+  signOut as firebaseSignOut,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile
+} from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import { useRouter } from "next/navigation";
 
 interface AuthContextType {
-  user: SecureUser | null;
-  displayName: string | null;
+  user: User | null;
   loading: boolean;
-  signOut: () => Promise<void>;
-  signIn: (usernameOrEmail: string, password: string) => Promise<boolean>;
-  signUp: (userData: {
-    username: string;
-    email: string;
-    password: string;
-  }) => Promise<boolean>;
+  signIn: (email: string, password: string) => Promise<boolean>;
+  signUp: (data: any) => Promise<boolean>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  displayName: null,
   loading: true,
-  signOut: async () => {},
   signIn: async () => false,
   signUp: async () => false,
+  logout: async () => { },
 });
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<SecureUser | null>(null);
+export const useAuth = () => useContext(AuthContext);
+
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // Check for existing session on mount
-  const checkSession = useCallback(async () => {
-    try {
-      const response = await fetch('/api/auth/session', {
-        method: 'GET',
-        credentials: 'include'
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-      } else {
-        setUser(null);
-      }
-    } catch (error) {
-      console.error('Session check error:', error);
-      setUser(null);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const router = useRouter();
 
   useEffect(() => {
-    checkSession();
-  }, [checkSession]);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setLoading(false);
+    });
 
-  const signIn = useCallback(async (usernameOrEmail: string, password: string): Promise<boolean> => {
+    return () => unsubscribe();
+  }, []);
+
+  const signIn = async (email: string, password: string) => {
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ usernameOrEmail, password }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-        return true;
-      } else {
-        const errorData = await response.json();
-        console.error('Login failed:', errorData.error);
-        return false;
-      }
+      await signInWithEmailAndPassword(auth, email, password);
+      return true;
     } catch (error) {
-      console.error('Login error:', error);
+      console.error("Login error", error);
       return false;
     }
-  }, []);
+  };
 
-  const signUp = useCallback(async (userData: {
-    username: string;
-    email: string;
-    password: string;
-  }): Promise<boolean> => {
+  const signUp = async (data: any) => {
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify(userData),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-        return true;
-      } else {
-        const errorData = await response.json();
-        console.error('Registration failed:', errorData.error);
-        return false;
+      const { email, password, username } = data;
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      if (username) {
+        await updateProfile(userCredential.user, {
+          displayName: username
+        });
       }
+      return true;
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error("Registration error", error);
       return false;
     }
-  }, []);
+  };
 
-  const signOut = useCallback(async (): Promise<void> => {
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include'
-      });
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      setUser(null);
-    }
-  }, []);
-
-  const displayName = user?.username || user?.email || null;
+  const logout = async () => {
+    await firebaseSignOut(auth);
+    router.push("/auth/login");
+  };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        displayName,
-        loading,
-        signIn,
-        signUp,
-        signOut,
-      }}
-    >
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, logout }}>
       {children}
     </AuthContext.Provider>
   );
-}
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 };
