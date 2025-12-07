@@ -165,9 +165,15 @@ export const getUserVotes = async (pollId: string, userId: string) => {
 
 export const getUserPolls = async (userId: string) => {
   const pollsRef = collection(db, "polls");
-  const q = query(pollsRef, where("createdBy", "==", userId), orderBy("createdAt", "desc"));
+  const q = query(pollsRef, where("createdBy", "==", userId));
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Poll[];
+  const polls = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Poll[];
+  // Sort in memory since we don't have an index yet
+  return polls.sort((a, b) => {
+    const dateA = new Date(a.createdAt).getTime();
+    const dateB = new Date(b.createdAt).getTime();
+    return dateB - dateA;
+  });
 };
 
 
